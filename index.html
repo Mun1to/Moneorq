@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Moneorq — controla tus ingresos, gastos fijos y gastos del día a día de forma fácil.">
+  <title>Moneorq — Tu dinero, claro</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💶</text></svg>">
+</head>
+<body>
+
+  <header class="cabecera">
+    <div class="cabecera-contenido">
+      <div class="monedero">
+        <span class="monedero-emoji" id="monederoEmoji">💶</span>
+        <h1 id="monederoNombre">Mi monedero</h1>
+      </div>
+      <p class="mes-actual" id="mesActual"></p>
+      <p class="saldo-etiqueta">Te queda este mes</p>
+      <p class="saldo" id="saldoDisponible">0,00 €</p>
+      <div class="barra-progreso" title="Parte del dinero del mes ya usada">
+        <div class="barra-progreso-relleno" id="barraProgreso"></div>
+      </div>
+      <p class="barra-detalle" id="barraDetalle"></p>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============ INICIO ============ -->
+    <section id="tab-inicio" class="tab activa">
+      <div class="tarjetas-resumen">
+        <div class="tarjeta">
+          <span class="tarjeta-icono">📥</span>
+          <span class="tarjeta-titulo">Ingresos</span>
+          <span class="tarjeta-valor positivo" id="resumenIngresos">0 €</span>
+        </div>
+        <div class="tarjeta">
+          <span class="tarjeta-icono">📌</span>
+          <span class="tarjeta-titulo">Fijos</span>
+          <span class="tarjeta-valor negativo" id="resumenFijos">0 €</span>
+        </div>
+        <div class="tarjeta">
+          <span class="tarjeta-icono">🛒</span>
+          <span class="tarjeta-titulo">Gastado</span>
+          <span class="tarjeta-valor negativo" id="resumenGastos">0 €</span>
+        </div>
+      </div>
+
+      <button class="boton-grande" id="btnGastoRapido">＋ Añadir un gasto</button>
+
+      <h2>Últimos movimientos</h2>
+      <ul class="lista" id="listaMovimientos"></ul>
+      <p class="vacio" id="vacioMovimientos">Todavía no hay movimientos este mes. ¡Empieza añadiendo tus ingresos y tus gastos fijos!</p>
+    </section>
+
+    <!-- ============ INGRESOS ============ -->
+    <section id="tab-ingresos" class="tab">
+      <h2>📥 Mis ingresos</h2>
+      <p class="ayuda">Apunta lo que <strong>de verdad te entra en la cuenta</strong> (el dinero líquido, ya con impuestos descontados) y qué día del mes lo cobras.</p>
+
+      <form id="formIngreso" class="formulario">
+        <label>¿De qué es el ingreso?
+          <input type="text" name="nombre" placeholder="Nómina, pensión, alquiler que cobras…" required maxlength="40">
+        </label>
+        <div class="fila">
+          <label>¿Cuánto te entra? (€)
+            <input type="number" name="cantidad" placeholder="1100" min="0.01" step="0.01" required inputmode="decimal">
+          </label>
+          <label>¿Qué día lo cobras?
+            <input type="number" name="dia" placeholder="1" min="1" max="31" required inputmode="numeric">
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" name="mensual" checked>
+          Se repite todos los meses
+        </label>
+        <button type="submit" class="boton">Guardar ingreso</button>
+      </form>
+
+      <ul class="lista" id="listaIngresos"></ul>
+      <p class="vacio" id="vacioIngresos">Aún no has apuntado ningún ingreso.</p>
+    </section>
+
+    <!-- ============ FIJOS ============ -->
+    <section id="tab-fijos" class="tab">
+      <h2>📌 Gastos fijos y suscripciones</h2>
+      <p class="ayuda">Lo que te cobran <strong>todos los meses sí o sí</strong>: alquiler o hipoteca, luz, internet, móvil, Spotify, Amazon Prime…</p>
+
+      <form id="formFijo" class="formulario">
+        <label>¿Qué es?
+          <input type="text" name="nombre" placeholder="Alquiler, Spotify, Internet casa…" required maxlength="40">
+        </label>
+        <div class="fila">
+          <label>¿Cuánto cuesta al mes? (€)
+            <input type="number" name="cantidad" placeholder="9,99" min="0.01" step="0.01" required inputmode="decimal">
+          </label>
+          <label>¿Qué día te lo cobran?
+            <input type="number" name="dia" placeholder="5" min="1" max="31" required inputmode="numeric">
+          </label>
+        </div>
+        <label>Tipo
+          <select name="categoria" id="selectCategoriaFijo"></select>
+        </label>
+        <button type="submit" class="boton">Guardar gasto fijo</button>
+      </form>
+
+      <p class="total-seccion" id="totalFijos"></p>
+      <ul class="lista" id="listaFijos"></ul>
+      <p class="vacio" id="vacioFijos">Aún no has apuntado ningún gasto fijo.</p>
+    </section>
+
+    <!-- ============ GASTOS ============ -->
+    <section id="tab-gastos" class="tab">
+      <h2>🛒 Gastos del día a día</h2>
+      <p class="ayuda">Cada vez que compres algo, apúntalo aquí en 10 segundos y se descuenta solo de lo que te queda.</p>
+
+      <form id="formGasto" class="formulario">
+        <label>¿Cuánto has gastado? (€)
+          <input type="number" name="cantidad" placeholder="23,50" min="0.01" step="0.01" required inputmode="decimal" id="inputCantidadGasto">
+        </label>
+        <label>¿En qué?
+          <select name="categoria" id="selectCategoriaGasto"></select>
+        </label>
+        <div class="fila">
+          <label>Nota (opcional)
+            <input type="text" name="nota" placeholder="Compra en Mercadona" maxlength="60">
+          </label>
+          <label>¿Cuándo?
+            <input type="date" name="fecha" required>
+          </label>
+        </div>
+        <button type="submit" class="boton">Apuntar gasto</button>
+      </form>
+
+      <p class="total-seccion" id="totalGastosMes"></p>
+      <ul class="lista" id="listaGastos"></ul>
+      <p class="vacio" id="vacioGastos">Aún no has apuntado gastos este mes.</p>
+    </section>
+
+    <!-- ============ AJUSTES ============ -->
+    <section id="tab-ajustes" class="tab">
+      <h2>⚙️ Ajustes</h2>
+
+      <form id="formAjustes" class="formulario">
+        <label>Nombre de tu monedero
+          <input type="text" name="nombre" id="ajusteNombre" maxlength="30" placeholder="Mi monedero">
+        </label>
+        <label>Emoji del monedero
+          <input type="text" name="emoji" id="ajusteEmoji" maxlength="4" placeholder="💶">
+        </label>
+
+        <span class="etiqueta">Color de la app</span>
+        <div class="paleta" id="paletaColores"></div>
+
+        <span class="etiqueta">Tema</span>
+        <div class="opciones-tema" id="opcionesTema">
+          <button type="button" data-tema="auto" class="chip">🌓 Automático</button>
+          <button type="button" data-tema="claro" class="chip">☀️ Claro</button>
+          <button type="button" data-tema="oscuro" class="chip">🌙 Oscuro</button>
+        </div>
+
+        <button type="submit" class="boton">Guardar ajustes</button>
+      </form>
+
+      <h2>💾 Copia de seguridad</h2>
+      <p class="ayuda">Tus datos se guardan <strong>solo en este navegador</strong>, nadie más los ve. Descarga una copia de vez en cuando por si cambias de móvil u ordenador.</p>
+      <div class="fila">
+        <button class="boton secundario" id="btnExportar">⬇️ Descargar mis datos</button>
+        <button class="boton secundario" id="btnImportar">⬆️ Recuperar una copia</button>
+        <input type="file" id="inputImportar" accept=".json" hidden>
+      </div>
+
+      <h2>🗑️ Zona peligrosa</h2>
+      <button class="boton peligro" id="btnBorrarTodo">Borrar todos los datos</button>
+    </section>
+
+  </main>
+
+  <nav class="navegacion">
+    <button data-tab="inicio" class="nav-boton activo"><span>🏠</span>Inicio</button>
+    <button data-tab="ingresos" class="nav-boton"><span>📥</span>Ingresos</button>
+    <button data-tab="fijos" class="nav-boton"><span>📌</span>Fijos</button>
+    <button data-tab="gastos" class="nav-boton"><span>🛒</span>Gastos</button>
+    <button data-tab="ajustes" class="nav-boton"><span>⚙️</span>Ajustes</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>

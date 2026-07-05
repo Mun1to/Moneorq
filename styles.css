@@ -1,0 +1,353 @@
+/* ==========================================================
+   Moneorq — estilos
+   El color de acento y el tema se controlan con variables CSS
+   que app.js cambia según los ajustes del usuario.
+   ========================================================== */
+
+:root {
+  --acento: #2e7d5b;
+  --acento-suave: color-mix(in srgb, var(--acento) 12%, transparent);
+  --fondo: #f4f5f7;
+  --superficie: #ffffff;
+  --texto: #1c1e21;
+  --texto-suave: #5f6672;
+  --borde: #e2e5ea;
+  --positivo: #1e8e4e;
+  --negativo: #c62f3b;
+  --sombra: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --radio: 14px;
+}
+
+body[data-tema="oscuro"] {
+  --fondo: #14161a;
+  --superficie: #1e2127;
+  --texto: #eceef1;
+  --texto-suave: #9aa1ac;
+  --borde: #2d313a;
+  --positivo: #4ec98a;
+  --negativo: #ff7a85;
+  --sombra: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  body[data-tema="auto"] {
+    --fondo: #14161a;
+    --superficie: #1e2127;
+    --texto: #eceef1;
+    --texto-suave: #9aa1ac;
+    --borde: #2d313a;
+    --positivo: #4ec98a;
+    --negativo: #ff7a85;
+    --sombra: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  padding-bottom: 90px; /* hueco para la barra de navegación fija */
+}
+
+/* ---------- Cabecera ---------- */
+
+.cabecera {
+  background: linear-gradient(160deg, var(--acento), color-mix(in srgb, var(--acento) 65%, #000));
+  color: #fff;
+  padding: 24px 16px 28px;
+  border-radius: 0 0 24px 24px;
+}
+
+.cabecera-contenido { max-width: 640px; margin: 0 auto; text-align: center; }
+
+.monedero { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.monedero-emoji { font-size: 1.6rem; }
+.monedero h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+
+.mes-actual {
+  margin: 4px 0 14px;
+  opacity: 0.85;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+
+.saldo-etiqueta { margin: 0; font-size: 0.95rem; opacity: 0.9; }
+
+.saldo {
+  margin: 4px 0 16px;
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.saldo.en-rojo { color: #ffd3d3; }
+
+.barra-progreso {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barra-progreso-relleno {
+  height: 100%;
+  width: 0%;
+  background: #fff;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.barra-detalle { margin: 8px 0 0; font-size: 0.8rem; opacity: 0.85; }
+
+/* ---------- Estructura ---------- */
+
+main { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+.tab { display: none; }
+.tab.activa { display: block; animation: aparecer 0.25s ease; }
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+h2 { font-size: 1.1rem; margin: 22px 0 10px; }
+
+.ayuda { color: var(--texto-suave); font-size: 0.9rem; margin: 0 0 14px; }
+
+/* ---------- Tarjetas de resumen ---------- */
+
+.tarjetas-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  padding: 12px;
+  text-align: center;
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tarjeta-icono { font-size: 1.2rem; }
+.tarjeta-titulo { font-size: 0.75rem; color: var(--texto-suave); }
+.tarjeta-valor { font-weight: 700; font-size: 0.95rem; }
+.positivo { color: var(--positivo); }
+.negativo { color: var(--negativo); }
+
+/* ---------- Botones ---------- */
+
+.boton,
+.boton-grande {
+  border: none;
+  border-radius: var(--radio);
+  background: var(--acento);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.boton:hover, .boton-grande:hover { filter: brightness(1.1); }
+.boton:active, .boton-grande:active { transform: scale(0.98); }
+
+.boton-grande {
+  display: block;
+  width: 100%;
+  margin: 18px 0 6px;
+  padding: 16px;
+  font-size: 1.05rem;
+}
+
+.boton.secundario {
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1px solid var(--borde);
+}
+
+.boton.peligro { background: var(--negativo); }
+
+/* ---------- Formularios ---------- */
+
+.formulario {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  padding: 16px;
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formulario label, .etiqueta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.formulario input,
+.formulario select {
+  font-size: 1rem;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  width: 100%;
+}
+
+.formulario input:focus, .formulario select:focus {
+  outline: 2px solid var(--acento);
+  border-color: transparent;
+}
+
+.fila { display: flex; gap: 10px; }
+.fila > * { flex: 1; }
+
+.check {
+  flex-direction: row !important;
+  align-items: center;
+  font-weight: 500 !important;
+  color: var(--texto) !important;
+}
+
+.check input { width: auto !important; accent-color: var(--acento); }
+
+/* ---------- Listas de movimientos ---------- */
+
+.lista { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.lista li {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--sombra);
+}
+
+.mov-icono {
+  font-size: 1.3rem;
+  background: var(--acento-suave);
+  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mov-datos { flex: 1; min-width: 0; }
+.mov-nombre { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mov-detalle { font-size: 0.78rem; color: var(--texto-suave); }
+
+.mov-cantidad { font-weight: 700; white-space: nowrap; }
+
+.mov-borrar {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.45;
+  padding: 6px;
+}
+
+.mov-borrar:hover { opacity: 1; }
+
+.vacio { color: var(--texto-suave); font-size: 0.9rem; text-align: center; padding: 18px 8px; display: none; }
+.vacio.visible { display: block; }
+
+.total-seccion { font-weight: 700; margin: 16px 0 4px; }
+
+/* ---------- Ajustes ---------- */
+
+.paleta { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.color-opcion {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-opcion.activo { border-color: var(--texto); }
+
+.opciones-tema { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chip {
+  border: 1px solid var(--borde);
+  background: var(--fondo);
+  color: var(--texto);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.chip.activo { background: var(--acento); color: #fff; border-color: var(--acento); }
+
+/* ---------- Navegación inferior ---------- */
+
+.navegacion {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  display: flex;
+  justify-content: space-around;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  z-index: 10;
+}
+
+.nav-boton {
+  border: none;
+  background: none;
+  color: var(--texto-suave);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.nav-boton span { font-size: 1.25rem; }
+.nav-boton.activo { color: var(--acento); background: var(--acento-suave); }
+
+/* ---------- Escritorio ---------- */
+
+@media (min-width: 700px) {
+  .navegacion {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    order: -1;
+    justify-content: center;
+    gap: 20px;
+  }
+  body { display: flex; flex-direction: column; padding-bottom: 20px; }
+  .saldo { font-size: 3.4rem; }
+}
