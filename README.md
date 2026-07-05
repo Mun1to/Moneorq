@@ -7,7 +7,7 @@ Moneorq nace de un problema muy real: hay muchas personas que ganan poco, pagan 
 ## ✨ Qué hace
 
 - **📥 Ingresos líquidos** — apunta lo que *de verdad* te entra en la cuenta (ya con impuestos descontados) y qué día lo cobras. Mensuales (nómina, pensión) o puntuales.
-- **📌 Gastos fijos y suscripciones** — alquiler o hipoteca, luz, internet, móvil, Spotify, Amazon Prime… con el día en que te los cobran.
+- **📌 Gastos fijos y suscripciones** — alquiler o hipoteca, luz, internet, móvil, Spotify, Amazon Prime… con el día en que te los cobran, cada mes o una vez al año. Los pagos a plazos ("me quedan 3 meses del ordenador") se apagan solos cuando terminan.
 - **🛒 Gastos del día a día** — un formulario rápido: cuánto, en qué (supermercado, transporte, ocio…) y una nota opcional. Se descuenta al momento.
 - **🏠 Inicio** — cuánto te queda este mes en grande, con barra de progreso y últimos movimientos.
 - **🎨 Personalizable** — nombre y emoji del monedero, color de la app y tema claro/oscuro.

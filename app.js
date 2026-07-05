@@ -52,7 +52,7 @@ function cargarDatos() {
     const combinado = { ...datosPorDefecto(), ...guardado, ajustes: { ...datosPorDefecto().ajustes, ...guardado.ajustes } };
     // datos guardados con versiones anteriores de la app
     combinado.ingresos = combinado.ingresos.map((i) => ({ tipo: "nomina", ...i }));
-    combinado.fijos = combinado.fijos.map((f) => ({ periodicidad: "mensual", ...f }));
+    combinado.fijos = combinado.fijos.map((f) => ({ periodicidad: "mensual", fin: null, ...f }));
     return combinado;
   } catch {
     return datosPorDefecto();
@@ -83,6 +83,23 @@ function categoriaDe(lista, id) {
   return lista.find((c) => c.id === id) || lista[lista.length - 1];
 }
 
+/* ---------- meses (claves tipo "2026-07") ---------- */
+
+const mesesEntre = (a, b) => {
+  const [ay, am] = a.split("-").map(Number);
+  const [by, bm] = b.split("-").map(Number);
+  return (by - ay) * 12 + (bm - am);
+};
+
+const sumarMeses = (mesClave, n) => {
+  const [y, m] = mesClave.split("-").map(Number);
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+};
+
+// pagos que le quedan a un fijo desde el mes dado (Infinity = para siempre)
+const mesesRestantes = (f, mes) => (f.fin ? Math.max(0, mesesEntre(mes, f.fin)) : Infinity);
+
 /* ---------- cálculos del mes ---------- */
 
 // coste de un gasto fijo repartido en un mes (los anuales se dividen entre 12)
@@ -94,16 +111,18 @@ function calcularMes() {
   const ingresosMes = datos.ingresos
     .filter((i) => i.mensual || i.mes === mes)
     .reduce((suma, i) => suma + i.cantidad, 0);
-  const fijosMes = datos.fijos.reduce((suma, f) => suma + fijoAlMes(f), 0);
+  // los fijos con fin (pagos a plazos) dejan de contar cuando ya no quedan meses
+  const fijosActivos = datos.fijos.filter((f) => mesesRestantes(f, mes) > 0);
+  const fijosMes = fijosActivos.reduce((suma, f) => suma + fijoAlMes(f), 0);
   const gastosMes = datos.gastos
     .filter((g) => g.fecha.startsWith(mes))
     .reduce((suma, g) => suma + g.cantidad, 0);
 
-  // vista anual: mensuales × 12 + puntuales de este año
+  // vista anual: mensuales × 12 (o × los meses que queden) + puntuales de este año
   const ingresosAnio = datos.ingresos.reduce(
     (suma, i) => suma + (i.mensual ? i.cantidad * 12 : (i.mes || "").startsWith(anio) ? i.cantidad : 0), 0);
-  const fijosAnio = datos.fijos.reduce(
-    (suma, f) => suma + (f.periodicidad === "anual" ? f.cantidad : f.cantidad * 12), 0);
+  const fijosAnio = fijosActivos.reduce(
+    (suma, f) => suma + (f.periodicidad === "anual" ? f.cantidad : f.cantidad * Math.min(mesesRestantes(f, mes), 12)), 0);
 
   return { ingresosMes, fijosMes, gastosMes, ingresosAnio, fijosAnio, disponible: ingresosMes - fijosMes - gastosMes };
 }
@@ -252,16 +271,26 @@ function pintarIngresos() {
 function pintarFijos() {
   const lista = $("#listaFijos");
   lista.innerHTML = "";
+  const mes = mesActualClave();
   const ordenados = [...datos.fijos].sort((a, b) => a.dia - b.dia);
   for (const fijo of ordenados) {
     const cat = categoriaDe(CATEGORIAS_FIJO, fijo.categoria);
     const esAnual = fijo.periodicidad === "anual";
+    const restantes = mesesRestantes(fijo, mes);
+    let detalle;
+    if (restantes === 0) {
+      detalle = `${cat.nombre} · ✅ terminado de pagar, ya no cuenta`;
+    } else if (esAnual) {
+      detalle = `${cat.nombre} · ${dinero(fijo.cantidad)} una vez al año · sale a ${dinero(fijo.cantidad / 12)}/mes`;
+    } else if (restantes !== Infinity) {
+      detalle = `${cat.nombre} · día ${fijo.dia} · ${restantes === 1 ? "queda 1 mes" : `quedan ${restantes} meses`}`;
+    } else {
+      detalle = `${cat.nombre} · te lo cobran el día ${fijo.dia}`;
+    }
     lista.append(elementoMovimiento({
       emoji: cat.emoji,
       nombre: fijo.nombre,
-      detalle: esAnual
-        ? `${cat.nombre} · ${dinero(fijo.cantidad)} una vez al año · sale a ${dinero(fijo.cantidad / 12)}/mes`
-        : `${cat.nombre} · te lo cobran el día ${fijo.dia}`,
+      detalle,
       cantidad: fijoAlMes(fijo),
       esGasto: true,
       alBorrar: () => {
@@ -385,6 +414,7 @@ $("#formIngreso").addEventListener("submit", (evento) => {
 $("#formFijo").addEventListener("submit", (evento) => {
   evento.preventDefault();
   const form = new FormData(evento.target);
+  const meses = parseInt(form.get("meses"), 10);
   datos.fijos.push({
     id: nuevoId(),
     nombre: form.get("nombre").trim(),
@@ -392,6 +422,7 @@ $("#formFijo").addEventListener("submit", (evento) => {
     dia: parseInt(form.get("dia"), 10),
     categoria: form.get("categoria"),
     periodicidad: form.get("periodicidad"),
+    fin: form.get("periodicidad") === "mensual" && meses > 0 ? sumarMeses(mesActualClave(), meses) : null,
   });
   guardarDatos();
   evento.target.reset();
