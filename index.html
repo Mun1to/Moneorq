@@ -46,6 +46,10 @@
           <span class="tarjeta-titulo">Gastado</span>
           <span class="tarjeta-valor negativo" id="resumenGastos">0 €</span>
         </div>
+        <div class="tarjeta ancha">
+          <span class="tarjeta-titulo">📅 En un año</span>
+          <span class="anual-texto" id="resumenAnual"></span>
+        </div>
       </div>
 
       <button class="boton-grande" id="btnGastoRapido">＋ Añadir un gasto</button>
@@ -62,7 +66,10 @@
 
       <form id="formIngreso" class="formulario">
         <label>¿De qué es el ingreso?
-          <input type="text" name="nombre" placeholder="Nómina, pensión, alquiler que cobras…" required maxlength="40">
+          <input type="text" name="nombre" placeholder="Nómina, plus, trabajillo…" required maxlength="40">
+        </label>
+        <label>Tipo de ingreso
+          <select name="tipo" id="selectTipoIngreso"></select>
         </label>
         <div class="fila">
           <label>¿Cuánto te entra? (€)
@@ -79,6 +86,7 @@
         <button type="submit" class="boton">Guardar ingreso</button>
       </form>
 
+      <p class="total-seccion" id="totalIngresos"></p>
       <ul class="lista" id="listaIngresos"></ul>
       <p class="vacio" id="vacioIngresos">Aún no has apuntado ningún ingreso.</p>
     </section>
@@ -93,16 +101,24 @@
           <input type="text" name="nombre" placeholder="Alquiler, Spotify, Internet casa…" required maxlength="40">
         </label>
         <div class="fila">
-          <label>¿Cuánto cuesta al mes? (€)
+          <label>¿Cuánto cuesta? (€)
             <input type="number" name="cantidad" placeholder="9,99" min="0.01" step="0.01" required inputmode="decimal">
           </label>
           <label>¿Qué día te lo cobran?
             <input type="number" name="dia" placeholder="5" min="1" max="31" required inputmode="numeric">
           </label>
         </div>
-        <label>Tipo
-          <select name="categoria" id="selectCategoriaFijo"></select>
-        </label>
+        <div class="fila">
+          <label>¿Cada cuánto lo pagas?
+            <select name="periodicidad">
+              <option value="mensual">🗓️ Cada mes</option>
+              <option value="anual">📅 Una vez al año</option>
+            </select>
+          </label>
+          <label>Tipo
+            <select name="categoria" id="selectCategoriaFijo"></select>
+          </label>
+        </div>
         <button type="submit" class="boton">Guardar gasto fijo</button>
       </form>
 

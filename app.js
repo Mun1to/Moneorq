@@ -17,6 +17,13 @@ const CATEGORIAS_GASTO = [
   { id: "otros", nombre: "Otros", emoji: "📦" },
 ];
 
+const CATEGORIAS_INGRESO = [
+  { id: "nomina", nombre: "Nómina / pensión", emoji: "💼" },
+  { id: "extra", nombre: "Plus / trabajillo extra", emoji: "✨" },
+  { id: "amigos", nombre: "De amigos o familia", emoji: "🤝" },
+  { id: "otros", nombre: "Otro ingreso", emoji: "📦" },
+];
+
 const CATEGORIAS_FIJO = [
   { id: "vivienda", nombre: "Alquiler / hipoteca", emoji: "🏠" },
   { id: "suministros", nombre: "Luz / agua / gas", emoji: "💡" },
@@ -30,9 +37,9 @@ const COLORES = ["#2e7d5b", "#2563b8", "#7c4fc4", "#c2417f", "#c45c1d", "#b8862e
 
 const datosPorDefecto = () => ({
   ajustes: { nombre: "Mi monedero", emoji: "💶", color: COLORES[0], tema: "auto" },
-  ingresos: [],   // { id, nombre, cantidad, dia, mensual, mes }  (mes solo en puntuales: "2026-07")
-  fijos: [],      // { id, nombre, cantidad, dia, categoria }
-  gastos: [],     // { id, cantidad, categoria, nota, fecha }     (fecha: "2026-07-05")
+  ingresos: [],   // { id, nombre, tipo, cantidad, dia, mensual, mes }  (mes solo en puntuales: "2026-07")
+  fijos: [],      // { id, nombre, cantidad, dia, categoria, periodicidad }  (periodicidad: "mensual" | "anual")
+  gastos: [],     // { id, cantidad, categoria, nota, fecha }              (fecha: "2026-07-05")
 });
 
 let datos = cargarDatos();
@@ -42,7 +49,11 @@ function cargarDatos() {
     const crudo = localStorage.getItem(CLAVE_DATOS);
     if (!crudo) return datosPorDefecto();
     const guardado = JSON.parse(crudo);
-    return { ...datosPorDefecto(), ...guardado, ajustes: { ...datosPorDefecto().ajustes, ...guardado.ajustes } };
+    const combinado = { ...datosPorDefecto(), ...guardado, ajustes: { ...datosPorDefecto().ajustes, ...guardado.ajustes } };
+    // datos guardados con versiones anteriores de la app
+    combinado.ingresos = combinado.ingresos.map((i) => ({ tipo: "nomina", ...i }));
+    combinado.fijos = combinado.fijos.map((f) => ({ periodicidad: "mensual", ...f }));
+    return combinado;
   } catch {
     return datosPorDefecto();
   }
@@ -74,16 +85,27 @@ function categoriaDe(lista, id) {
 
 /* ---------- cálculos del mes ---------- */
 
+// coste de un gasto fijo repartido en un mes (los anuales se dividen entre 12)
+const fijoAlMes = (f) => (f.periodicidad === "anual" ? f.cantidad / 12 : f.cantidad);
+
 function calcularMes() {
   const mes = mesActualClave();
+  const anio = mes.slice(0, 4);
   const ingresosMes = datos.ingresos
     .filter((i) => i.mensual || i.mes === mes)
     .reduce((suma, i) => suma + i.cantidad, 0);
-  const fijosMes = datos.fijos.reduce((suma, f) => suma + f.cantidad, 0);
+  const fijosMes = datos.fijos.reduce((suma, f) => suma + fijoAlMes(f), 0);
   const gastosMes = datos.gastos
     .filter((g) => g.fecha.startsWith(mes))
     .reduce((suma, g) => suma + g.cantidad, 0);
-  return { ingresosMes, fijosMes, gastosMes, disponible: ingresosMes - fijosMes - gastosMes };
+
+  // vista anual: mensuales × 12 + puntuales de este año
+  const ingresosAnio = datos.ingresos.reduce(
+    (suma, i) => suma + (i.mensual ? i.cantidad * 12 : (i.mes || "").startsWith(anio) ? i.cantidad : 0), 0);
+  const fijosAnio = datos.fijos.reduce(
+    (suma, f) => suma + (f.periodicidad === "anual" ? f.cantidad : f.cantidad * 12), 0);
+
+  return { ingresosMes, fijosMes, gastosMes, ingresosAnio, fijosAnio, disponible: ingresosMes - fijosMes - gastosMes };
 }
 
 /* ---------- pintado ---------- */
@@ -122,10 +144,24 @@ function pintarCabecera() {
 }
 
 function pintarResumen() {
-  const { ingresosMes, fijosMes, gastosMes } = calcularMes();
+  const { ingresosMes, fijosMes, gastosMes, ingresosAnio, fijosAnio } = calcularMes();
   $("#resumenIngresos").textContent = dinero(ingresosMes);
   $("#resumenFijos").textContent = dinero(fijosMes);
   $("#resumenGastos").textContent = dinero(gastosMes);
+
+  const anual = $("#resumenAnual");
+  anual.innerHTML = "";
+  if (ingresosAnio === 0 && fijosAnio === 0) {
+    anual.textContent = "Apunta ingresos y gastos fijos para ver tu año de un vistazo.";
+  } else {
+    const entra = document.createElement("strong");
+    entra.className = "positivo";
+    entra.textContent = dinero(ingresosAnio);
+    const sale = document.createElement("strong");
+    sale.className = "negativo";
+    sale.textContent = dinero(fijosAnio);
+    anual.append("Ingresas ", entra, " al año y pagas ", sale, " en gastos fijos.");
+  }
 }
 
 function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorrar }) {
@@ -191,10 +227,11 @@ function pintarIngresos() {
   const lista = $("#listaIngresos");
   lista.innerHTML = "";
   for (const ingreso of datos.ingresos) {
+    const cat = categoriaDe(CATEGORIAS_INGRESO, ingreso.tipo);
     lista.append(elementoMovimiento({
-      emoji: "📥",
+      emoji: cat.emoji,
       nombre: ingreso.nombre,
-      detalle: ingreso.mensual ? `Cada mes, el día ${ingreso.dia}` : `Solo este mes, el día ${ingreso.dia}`,
+      detalle: `${cat.nombre} · ${ingreso.mensual ? `cada mes, el día ${ingreso.dia}` : `solo una vez, el día ${ingreso.dia}`}`,
       cantidad: ingreso.cantidad,
       esGasto: false,
       alBorrar: () => {
@@ -205,6 +242,10 @@ function pintarIngresos() {
       },
     }));
   }
+  const { ingresosMes, ingresosAnio } = calcularMes();
+  $("#totalIngresos").textContent = datos.ingresos.length
+    ? `Ingresas ${dinero(ingresosMes)} este mes · ${dinero(ingresosAnio)} al año`
+    : "";
   $("#vacioIngresos").classList.toggle("visible", datos.ingresos.length === 0);
 }
 
@@ -214,11 +255,14 @@ function pintarFijos() {
   const ordenados = [...datos.fijos].sort((a, b) => a.dia - b.dia);
   for (const fijo of ordenados) {
     const cat = categoriaDe(CATEGORIAS_FIJO, fijo.categoria);
+    const esAnual = fijo.periodicidad === "anual";
     lista.append(elementoMovimiento({
       emoji: cat.emoji,
       nombre: fijo.nombre,
-      detalle: `${cat.nombre} · te lo cobran el día ${fijo.dia}`,
-      cantidad: fijo.cantidad,
+      detalle: esAnual
+        ? `${cat.nombre} · ${dinero(fijo.cantidad)} una vez al año · sale a ${dinero(fijo.cantidad / 12)}/mes`
+        : `${cat.nombre} · te lo cobran el día ${fijo.dia}`,
+      cantidad: fijoAlMes(fijo),
       esGasto: true,
       alBorrar: () => {
         if (!confirm(`¿Borrar el gasto fijo "${fijo.nombre}"?`)) return;
@@ -228,8 +272,10 @@ function pintarFijos() {
       },
     }));
   }
-  const total = datos.fijos.reduce((s, f) => s + f.cantidad, 0);
-  $("#totalFijos").textContent = datos.fijos.length ? `Total fijo al mes: ${dinero(total)}` : "";
+  const { fijosMes, fijosAnio } = calcularMes();
+  $("#totalFijos").textContent = datos.fijos.length
+    ? `Total fijo: ${dinero(fijosMes)} al mes · ${dinero(fijosAnio)} al año`
+    : "";
   $("#vacioFijos").classList.toggle("visible", datos.fijos.length === 0);
 }
 
@@ -324,6 +370,7 @@ $("#formIngreso").addEventListener("submit", (evento) => {
   datos.ingresos.push({
     id: nuevoId(),
     nombre: form.get("nombre").trim(),
+    tipo: form.get("tipo"),
     cantidad: parseFloat(form.get("cantidad")),
     dia: parseInt(form.get("dia"), 10),
     mensual: form.get("mensual") === "on",
@@ -344,6 +391,7 @@ $("#formFijo").addEventListener("submit", (evento) => {
     cantidad: parseFloat(form.get("cantidad")),
     dia: parseInt(form.get("dia"), 10),
     categoria: form.get("categoria"),
+    periodicidad: form.get("periodicidad"),
   });
   guardarDatos();
   evento.target.reset();
@@ -426,5 +474,6 @@ $("#btnBorrarTodo").addEventListener("click", () => {
 
 rellenarSelect($("#selectCategoriaGasto"), CATEGORIAS_GASTO);
 rellenarSelect($("#selectCategoriaFijo"), CATEGORIAS_FIJO);
+rellenarSelect($("#selectTipoIngreso"), CATEGORIAS_INGRESO);
 document.querySelector('#formGasto [name="fecha"]').value = hoyISO();
 pintarTodo();
