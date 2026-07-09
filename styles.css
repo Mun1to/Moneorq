@@ -5,6 +5,7 @@
    ========================================================== */
 
 :root {
+  color-scheme: light;
   --acento: #2e7d5b;
   --acento-suave: color-mix(in srgb, var(--acento) 12%, transparent);
   --fondo: #f4f5f7;
@@ -19,6 +20,7 @@
 }
 
 body[data-tema="oscuro"] {
+  color-scheme: dark;
   --fondo: #14161a;
   --superficie: #1e2127;
   --texto: #eceef1;
@@ -31,6 +33,7 @@ body[data-tema="oscuro"] {
 
 @media (prefers-color-scheme: dark) {
   body[data-tema="auto"] {
+    color-scheme: dark;
     --fondo: #14161a;
     --superficie: #1e2127;
     --texto: #eceef1;
