@@ -37,6 +37,17 @@ HTML, CSS y JavaScript puros. Sin frameworks, sin dependencias, sin build. Así 
 - [ ] 🥇 Avisos de "hoy te cobran X" y modo huchas/ahorro
 - [ ] 🏆 PWA instalable en el móvil
 
+## 🔍 No te fíes, compruébalo
+
+Que el código sea abierto solo sirve si alguien lo lee, y casi nadie lo hace. Así que en vez
+de pedirte que confíes, aquí tienes cómo comprobarlo: pon a tu propia IA a revisar este
+repositorio y te dará un informe de seguridad en unos minutos, aunque no sepas programar.
+
+Abre [AI-AUDIT.md](AI-AUDIT.md) y pega ese texto en Claude Code, Codex, Cursor, Copilot o la
+que uses. Te dirá qué hace este programa de verdad: qué envía por internet (aquí, nada: tus
+datos se quedan en tu navegador), qué toca en tu ordenador y qué ejecuta al abrirse. Es el
+mismo texto en todos los repositorios públicos de aquí, así que puedes comparar.
+
 ## 📄 Licencia
 
 MIT — úsala, cópiala y mejórala.
