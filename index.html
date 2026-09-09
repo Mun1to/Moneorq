@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Moneorq — controla tus ingresos, gastos fijos y gastos del día a día de forma fácil.">
-  <title>Moneorq — Tu dinero, claro</title>
+  <meta name="description" content="Moneorq, controla tus ingresos, gastos fijos y gastos del día a día de forma fácil.">
+  <title>Moneorq, tu dinero claro</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💶</text></svg>">
 </head>
@@ -18,8 +18,15 @@
         <span class="monedero-emoji" id="monederoEmoji">💶</span>
         <h1 id="monederoNombre">Mi monedero</h1>
       </div>
-      <p class="mes-actual" id="mesActual"></p>
-      <p class="saldo-etiqueta">Te queda este mes</p>
+
+      <div class="mes-navegador">
+        <button type="button" class="mes-flecha" id="btnMesAnterior" aria-label="Mes anterior">‹</button>
+        <p class="mes-actual" id="mesActual"></p>
+        <button type="button" class="mes-flecha" id="btnMesSiguiente" aria-label="Mes siguiente">›</button>
+      </div>
+      <button type="button" class="mes-hoy" id="btnVolverHoy" hidden>Volver a este mes</button>
+
+      <p class="saldo-etiqueta" id="saldoEtiqueta">Te queda este mes</p>
       <p class="saldo" id="saldoDisponible">0,00 €</p>
       <div class="barra-progreso" title="Parte del dinero del mes ya usada">
         <div class="barra-progreso-relleno" id="barraProgreso"></div>
@@ -56,9 +63,33 @@
 
       <button class="boton-grande" id="btnGastoRapido">＋ Añadir un gasto</button>
 
+      <h2>📅 Calendario del mes</h2>
+      <p class="ayuda">Toca cualquier día para apuntar un gasto de <strong>ese día</strong>, aunque ya haya pasado.</p>
+
+      <div class="calendario">
+        <div class="calendario-semana">
+          <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+        </div>
+        <div class="calendario-dias" id="calendarioDias"></div>
+      </div>
+
+      <div class="leyenda">
+        <span><i class="punto punto-ingreso"></i> te pagan</span>
+        <span><i class="punto punto-fijo"></i> te cobran</span>
+        <span><i class="punto punto-gasto"></i> gastaste</span>
+      </div>
+
       <h2>Últimos movimientos</h2>
       <ul class="lista" id="listaMovimientos"></ul>
-      <p class="vacio" id="vacioMovimientos">Todavía no hay movimientos este mes. ¡Empieza añadiendo tus ingresos y tus gastos fijos!</p>
+      <p class="vacio" id="vacioMovimientos">Todavía no hay movimientos en este mes. Empieza añadiendo tus ingresos y tus gastos fijos.</p>
+    </section>
+
+    <!-- ============ MESES ============ -->
+    <section id="tab-meses" class="tab">
+      <h2>🗓️ Todos tus meses</h2>
+      <p class="ayuda">Lo que entró, lo que se fue y lo que quedó en cada mes. Toca uno para verlo entero.</p>
+      <ul class="lista lista-meses" id="listaMeses"></ul>
+      <p class="vacio" id="vacioMeses">Aún no hay meses con movimientos apuntados.</p>
     </section>
 
     <!-- ============ INGRESOS ============ -->
@@ -70,9 +101,11 @@
         <label>¿De qué es el ingreso?
           <input type="text" name="nombre" placeholder="Nómina, plus, trabajillo…" required maxlength="40">
         </label>
-        <label>Tipo de ingreso
-          <select name="tipo" id="selectTipoIngreso"></select>
-        </label>
+
+        <span class="etiqueta">Tipo de ingreso</span>
+        <div class="chips-categorias" id="chipsTipoIngreso"></div>
+        <input type="hidden" name="tipo" id="tipoIngresoElegido">
+
         <div class="fila">
           <label>¿Cuánto te entra? (€)
             <input type="number" name="cantidad" placeholder="1100" min="0.01" step="0.01" required inputmode="decimal">
@@ -102,6 +135,11 @@
         <label>¿Qué es?
           <input type="text" name="nombre" placeholder="Alquiler, Spotify, Internet casa…" required maxlength="40">
         </label>
+
+        <span class="etiqueta">Tipo</span>
+        <div class="chips-categorias" id="chipsCategoriaFijo"></div>
+        <input type="hidden" name="categoria" id="categoriaFijoElegida">
+
         <div class="fila">
           <label>¿Cuánto cuesta? (€)
             <input type="number" name="cantidad" placeholder="9,99" min="0.01" step="0.01" required inputmode="decimal">
@@ -110,17 +148,12 @@
             <input type="number" name="dia" placeholder="5" min="1" max="31" required inputmode="numeric">
           </label>
         </div>
-        <div class="fila">
-          <label>¿Cada cuánto lo pagas?
-            <select name="periodicidad">
-              <option value="mensual">🗓️ Cada mes</option>
-              <option value="anual">📅 Una vez al año</option>
-            </select>
-          </label>
-          <label>Tipo
-            <select name="categoria" id="selectCategoriaFijo"></select>
-          </label>
-        </div>
+        <label>¿Cada cuánto lo pagas?
+          <select name="periodicidad">
+            <option value="mensual">🗓️ Cada mes</option>
+            <option value="anual">📅 Una vez al año</option>
+          </select>
+        </label>
         <label>¿Cuántos meses te quedan por pagar? (déjalo vacío si es para siempre)
           <input type="number" name="meses" placeholder="Para siempre" min="1" max="480" inputmode="numeric">
         </label>
@@ -134,30 +167,36 @@
 
     <!-- ============ GASTOS ============ -->
     <section id="tab-gastos" class="tab">
-      <h2>🛒 Gastos del día a día</h2>
-      <p class="ayuda">Cada vez que compres algo, apúntalo aquí en 10 segundos y se descuenta solo de lo que te queda.</p>
+      <h2 id="tituloGastos">🛒 Gastos del día a día</h2>
+      <p class="ayuda" id="ayudaGastos">Cada vez que compres algo, apúntalo aquí en 10 segundos y se descuenta solo de lo que te queda.</p>
 
       <form id="formGasto" class="formulario">
         <label>¿Cuánto has gastado? (€)
           <input type="number" name="cantidad" placeholder="23,50" min="0.01" step="0.01" required inputmode="decimal" id="inputCantidadGasto">
         </label>
-        <label>¿En qué?
-          <select name="categoria" id="selectCategoriaGasto"></select>
+
+        <span class="etiqueta">¿En qué?</span>
+        <div class="chips-categorias" id="chipsCategoriaGasto"></div>
+        <input type="hidden" name="categoria" id="categoriaGastoElegida">
+
+        <label>Nota (opcional)
+          <input type="text" name="nota" placeholder="Compra en Mercadona" maxlength="60">
         </label>
-        <div class="fila">
-          <label>Nota (opcional)
-            <input type="text" name="nota" placeholder="Compra en Mercadona" maxlength="60">
-          </label>
-          <label>¿Cuándo?
-            <input type="date" name="fecha" required>
-          </label>
+
+        <span class="etiqueta">¿Qué día fue?</span>
+        <div class="fila-fecha">
+          <button type="button" class="chip" data-atajo="0">Hoy</button>
+          <button type="button" class="chip" data-atajo="1">Ayer</button>
+          <input type="date" name="fecha" id="inputFechaGasto" required>
         </div>
-        <button type="submit" class="boton">Apuntar gasto</button>
+
+        <button type="submit" class="boton" id="btnGuardarGasto">Apuntar gasto</button>
+        <button type="button" class="boton secundario" id="btnCancelarEdicion" hidden>Cancelar los cambios</button>
       </form>
 
       <p class="total-seccion" id="totalGastosMes"></p>
       <ul class="lista" id="listaGastos"></ul>
-      <p class="vacio" id="vacioGastos">Aún no has apuntado gastos este mes.</p>
+      <p class="vacio" id="vacioGastos">Aún no has apuntado gastos en este mes.</p>
     </section>
 
     <!-- ============ AJUSTES ============ -->
@@ -201,11 +240,14 @@
 
   <nav class="navegacion">
     <button data-tab="inicio" class="nav-boton activo"><span>🏠</span>Inicio</button>
+    <button data-tab="meses" class="nav-boton"><span>🗓️</span>Meses</button>
     <button data-tab="ingresos" class="nav-boton"><span>📥</span>Ingresos</button>
     <button data-tab="fijos" class="nav-boton"><span>📌</span>Fijos</button>
     <button data-tab="gastos" class="nav-boton"><span>🛒</span>Gastos</button>
     <button data-tab="ajustes" class="nav-boton"><span>⚙️</span>Ajustes</button>
   </nav>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
 
   <script src="app.js"></script>
 </body>

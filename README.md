@@ -10,6 +10,9 @@ Moneorq nace de un problema muy real: hay muchas personas que ganan poco, pagan 
 - **📌 Gastos fijos y suscripciones** — alquiler o hipoteca, luz, internet, móvil, Spotify, Amazon Prime… con el día en que te los cobran, cada mes o una vez al año. Los pagos a plazos ("me quedan 3 meses del ordenador") se apagan solos cuando terminan.
 - **🛒 Gastos del día a día** — un formulario rápido: cuánto, en qué (supermercado, transporte, ocio…) y una nota opcional. Se descuenta al momento.
 - **🏠 Inicio** — cuánto te queda este mes en grande, con barra de progreso y últimos movimientos.
+- **📅 Calendario del mes** — todos los días del mes con lo gastado en cada uno y una marca en los días que te pagan y en los que te cobran. Tocas un día y apuntas un gasto de ese día, aunque ya haya pasado.
+- **🗓️ Todos tus meses** — te mueves con las flechas a cualquier mes, pasado o futuro, y ves el presupuesto de ese mes entero. La pestaña Meses lista lo que entró, lo que se fue y lo que quedó en cada uno.
+- **✏️ Corregir sin miedo** — tocas cualquier gasto de la lista y lo cambias, sin borrarlo y volver a escribirlo.
 - **🎨 Personalizable** — nombre y emoji del monedero, color de la app y tema claro/oscuro.
 - **💾 Tus datos son tuyos** — todo se guarda en tu navegador (localStorage). Sin cuentas, sin servidores, sin que nadie vea tus finanzas. Puedes descargar y recuperar una copia de seguridad en JSON.
 

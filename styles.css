@@ -70,12 +70,53 @@ body {
 .monedero-emoji { font-size: 1.6rem; }
 .monedero h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
 
-.mes-actual {
-  margin: 4px 0 14px;
-  opacity: 0.85;
-  font-size: 0.9rem;
-  text-transform: capitalize;
+/* Navegador de meses: flechas a los lados del nombre del mes */
+
+.mes-navegador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 2px;
 }
+
+.mes-actual {
+  margin: 0;
+  min-width: 11ch;
+  opacity: 0.95;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.mes-flecha {
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.mes-flecha:hover { background: rgba(255, 255, 255, 0.32); }
+.mes-flecha:active { transform: scale(0.92); }
+
+.mes-hoy {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.mes-hoy:hover { background: rgba(255, 255, 255, 0.18); }
 
 .saldo-etiqueta { margin: 0; font-size: 0.95rem; opacity: 0.9; }
 
@@ -337,12 +378,145 @@ h2 { font-size: 1.1rem; margin: 22px 0 10px; }
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 10px;
+  padding: 6px 2px;
   border-radius: 10px;
+  /* flex:1 con min-width:0 = las seis pestañas caben siempre,
+     por estrecho que sea el móvil, sin desbordar la página a lo ancho */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-boton span { font-size: 1.25rem; }
 .nav-boton.activo { color: var(--acento); background: var(--acento-suave); }
+
+/* ---------- Calendario del mes ---------- */
+
+.calendario {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  padding: 12px;
+  box-shadow: var(--sombra);
+}
+
+.calendario-semana,
+.calendario-dias {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.calendario-semana {
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+.dia {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  background: var(--fondo);
+  color: var(--texto);
+  border-radius: 10px;
+  padding: 3px 2px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.dia:hover { background: var(--acento-suave); }
+.dia:active { transform: scale(0.94); }
+
+.dia.hueco { background: none; cursor: default; }
+.dia.hueco:hover { background: none; }
+
+.dia.hoy { border-color: var(--acento); }
+.dia.con-gasto { background: var(--acento-suave); }
+
+.dia-numero { font-size: 0.85rem; font-weight: 600; line-height: 1; }
+.dia-importe { font-size: 0.58rem; color: var(--negativo); font-weight: 700; line-height: 1; }
+.dia-puntos { display: flex; gap: 2px; }
+
+.punto {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.punto-ingreso { background: var(--positivo); }
+.punto-fijo { background: #d08a1e; }
+.punto-gasto { background: var(--negativo); }
+
+.leyenda {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+
+.leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ---------- Chips de categoría y atajos de fecha ---------- */
+
+.chips-categorias { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip-categoria { font-size: 0.8rem; padding: 7px 12px; }
+
+.fila-fecha { display: flex; gap: 8px; align-items: center; }
+.fila-fecha input { flex: 1; }
+
+/* ---------- Lista de meses ---------- */
+
+.mes-fila { cursor: pointer; transition: transform 0.1s ease; }
+.mes-fila:hover { background: var(--acento-suave); }
+.mes-fila:active { transform: scale(0.99); }
+.mes-fila.activa { border: 1px solid var(--acento); }
+
+.lista li.tocable .mov-datos,
+.lista li.tocable .mov-icono,
+.lista li.tocable .mov-cantidad { cursor: pointer; }
+
+/* ---------- Aviso flotante ---------- */
+
+.aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translate(-50%, 12px);
+  background: var(--texto);
+  color: var(--fondo);
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 20;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.aviso.visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Pantallas estrechas: caben seis pestañas ---------- */
+
+@media (max-width: 430px) {
+  .nav-boton { padding: 6px 4px; font-size: 0.62rem; }
+  .nav-boton span { font-size: 1.15rem; }
+}
 
 /* ---------- Escritorio ---------- */
 
@@ -357,4 +531,7 @@ h2 { font-size: 1.1rem; margin: 22px 0 10px; }
   }
   body { display: flex; flex-direction: column; padding-bottom: 20px; }
   .saldo { font-size: 3.4rem; }
+  .aviso { bottom: 28px; }
+  .dia-numero { font-size: 1rem; }
+  .dia-importe { font-size: 0.7rem; }
 }

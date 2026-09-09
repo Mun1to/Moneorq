@@ -1,5 +1,5 @@
 /* ==========================================================
-   Moneorq — lógica de la app
+   Moneorq, lógica de la app
    Todos los datos viven en localStorage, en este navegador.
    ========================================================== */
 
@@ -37,9 +37,9 @@ const COLORES = ["#2e7d5b", "#2563b8", "#7c4fc4", "#c2417f", "#c45c1d", "#b8862e
 
 const datosPorDefecto = () => ({
   ajustes: { nombre: "Mi monedero", emoji: "💶", color: COLORES[0], tema: "auto" },
-  ingresos: [],   // { id, nombre, tipo, cantidad, dia, mensual, mes }  (mes solo en puntuales: "2026-07")
-  fijos: [],      // { id, nombre, cantidad, dia, categoria, periodicidad }  (periodicidad: "mensual" | "anual")
-  gastos: [],     // { id, cantidad, categoria, nota, fecha }              (fecha: "2026-07-05")
+  ingresos: [],   // { id, nombre, tipo, cantidad, dia, mensual, mes, desde }
+  fijos: [],      // { id, nombre, cantidad, dia, categoria, periodicidad, fin, desde }
+  gastos: [],     // { id, cantidad, categoria, nota, fecha }   (fecha: "2026-09-05")
 });
 
 let datos = cargarDatos();
@@ -50,9 +50,10 @@ function cargarDatos() {
     if (!crudo) return datosPorDefecto();
     const guardado = JSON.parse(crudo);
     const combinado = { ...datosPorDefecto(), ...guardado, ajustes: { ...datosPorDefecto().ajustes, ...guardado.ajustes } };
-    // datos guardados con versiones anteriores de la app
-    combinado.ingresos = combinado.ingresos.map((i) => ({ tipo: "nomina", ...i }));
-    combinado.fijos = combinado.fijos.map((f) => ({ periodicidad: "mensual", fin: null, ...f }));
+    // datos guardados con versiones anteriores de la app.
+    // desde: null significa "cuenta desde siempre", para no falsear los meses viejos.
+    combinado.ingresos = combinado.ingresos.map((i) => ({ tipo: "nomina", desde: null, ...i }));
+    combinado.fijos = combinado.fijos.map((f) => ({ periodicidad: "mensual", fin: null, desde: null, ...f }));
     return combinado;
   } catch {
     return datosPorDefecto();
@@ -72,18 +73,32 @@ const dinero = (n) => formatoMoneda.format(n);
 
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-const mesActualClave = () => new Date().toISOString().slice(0, 7); // "2026-07"
+const dosDigitos = (n) => String(n).padStart(2, "0");
+
+const mesActualClave = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${dosDigitos(d.getMonth() + 1)}`;
+};
 
 const hoyISO = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${dosDigitos(d.getMonth() + 1)}-${dosDigitos(d.getDate())}`;
 };
+
+const diaISO = (mesClave, dia) => `${mesClave}-${dosDigitos(dia)}`;
 
 function categoriaDe(lista, id) {
   return lista.find((c) => c.id === id) || lista[lista.length - 1];
 }
 
-/* ---------- meses (claves tipo "2026-07") ---------- */
+function nombreDelMes(mesClave) {
+  const [anio, mes] = mesClave.split("-").map(Number);
+  const texto = new Date(anio, mes - 1, 1).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  // solo la primera letra en mayúscula: "Septiembre de 2026", nunca "Septiembre De 2026"
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/* ---------- meses (claves tipo "2026-09") ---------- */
 
 const mesesEntre = (a, b) => {
   const [ay, am] = a.split("-").map(Number);
@@ -94,26 +109,37 @@ const mesesEntre = (a, b) => {
 const sumarMeses = (mesClave, n) => {
   const [y, m] = mesClave.split("-").map(Number);
   const total = y * 12 + (m - 1) + n;
-  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+  return `${Math.floor(total / 12)}-${dosDigitos((total % 12) + 1)}`;
 };
+
+// mes que se está mirando ahora mismo, no tiene por qué ser el de hoy
+let mesVisible = mesActualClave();
+
+/* ---------- qué cuenta en cada mes ---------- */
 
 // pagos que le quedan a un fijo desde el mes dado (Infinity = para siempre)
 const mesesRestantes = (f, mes) => (f.fin ? Math.max(0, mesesEntre(mes, f.fin)) : Infinity);
 
-/* ---------- cálculos del mes ---------- */
+// nada cuenta en los meses anteriores a su alta
+const yaExistiaEn = (item, mes) => !item.desde || mesesEntre(item.desde, mes) >= 0;
+
+const fijoActivoEn = (f, mes) => yaExistiaEn(f, mes) && mesesRestantes(f, mes) > 0;
+
+const ingresoActivoEn = (i, mes) => (i.mensual ? yaExistiaEn(i, mes) : i.mes === mes);
 
 // coste de un gasto fijo repartido en un mes (los anuales se dividen entre 12)
 const fijoAlMes = (f) => (f.periodicidad === "anual" ? f.cantidad / 12 : f.cantidad);
 
-function calcularMes() {
-  const mes = mesActualClave();
+function calcularMes(mes = mesVisible) {
   const anio = mes.slice(0, 4);
+
   const ingresosMes = datos.ingresos
-    .filter((i) => i.mensual || i.mes === mes)
+    .filter((i) => ingresoActivoEn(i, mes))
     .reduce((suma, i) => suma + i.cantidad, 0);
-  // los fijos con fin (pagos a plazos) dejan de contar cuando ya no quedan meses
-  const fijosActivos = datos.fijos.filter((f) => mesesRestantes(f, mes) > 0);
+
+  const fijosActivos = datos.fijos.filter((f) => fijoActivoEn(f, mes));
   const fijosMes = fijosActivos.reduce((suma, f) => suma + fijoAlMes(f), 0);
+
   const gastosMes = datos.gastos
     .filter((g) => g.fecha.startsWith(mes))
     .reduce((suma, g) => suma + g.cantidad, 0);
@@ -127,12 +153,39 @@ function calcularMes() {
   return { ingresosMes, fijosMes, gastosMes, ingresosAnio, fijosAnio, disponible: ingresosMes - fijosMes - gastosMes };
 }
 
+// todos los meses que tienen algo que enseñar, del más nuevo al más viejo
+function mesesConDatos() {
+  const meses = new Set([mesActualClave(), mesVisible]);
+  datos.gastos.forEach((g) => meses.add(g.fecha.slice(0, 7)));
+  datos.ingresos.forEach((i) => { if (i.mes) meses.add(i.mes); if (i.desde) meses.add(i.desde); });
+  datos.fijos.forEach((f) => { if (f.desde) meses.add(f.desde); });
+  return [...meses].sort().reverse();
+}
+
+/* ---------- avisos ---------- */
+
+let temporizadorAviso;
+
+function avisar(texto) {
+  const el = $("#aviso");
+  el.textContent = texto;
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add("visible"));
+  clearTimeout(temporizadorAviso);
+  temporizadorAviso = setTimeout(() => {
+    el.classList.remove("visible");
+    setTimeout(() => { el.hidden = true; }, 300);
+  }, 2800);
+}
+
 /* ---------- pintado ---------- */
 
 function pintarTodo() {
   pintarCabecera();
   pintarResumen();
+  pintarCalendario();
   pintarMovimientos();
+  pintarMeses();
   pintarIngresos();
   pintarFijos();
   pintarGastos();
@@ -146,8 +199,12 @@ function pintarCabecera() {
   document.documentElement.style.setProperty("--acento", color);
   document.body.dataset.tema = tema;
 
-  const fecha = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
-  $("#mesActual").textContent = fecha;
+  $("#mesActual").textContent = nombreDelMes(mesVisible);
+
+  const distancia = mesesEntre(mesActualClave(), mesVisible);
+  $("#btnVolverHoy").hidden = distancia === 0;
+  $("#saldoEtiqueta").textContent =
+    distancia === 0 ? "Te queda este mes" : distancia < 0 ? "Le quedó a ese mes" : "Le quedará a ese mes";
 
   const { ingresosMes, fijosMes, gastosMes, disponible } = calcularMes();
   const saldoEl = $("#saldoDisponible");
@@ -183,7 +240,83 @@ function pintarResumen() {
   }
 }
 
-function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorrar }) {
+/* ---------- calendario del mes ---------- */
+
+function pintarCalendario() {
+  const rejilla = $("#calendarioDias");
+  rejilla.innerHTML = "";
+
+  const [anio, mes] = mesVisible.split("-").map(Number);
+  const diasDelMes = new Date(anio, mes, 0).getDate();
+  // getDay() da 0 el domingo, aquí la semana empieza en lunes
+  const huecoInicial = (new Date(anio, mes - 1, 1).getDay() + 6) % 7;
+
+  for (let i = 0; i < huecoInicial; i++) {
+    const hueco = document.createElement("span");
+    hueco.className = "dia hueco";
+    rejilla.append(hueco);
+  }
+
+  const ingresosDelMes = datos.ingresos.filter((i) => ingresoActivoEn(i, mesVisible));
+  const fijosDelMes = datos.fijos.filter((f) => fijoActivoEn(f, mesVisible));
+
+  for (let dia = 1; dia <= diasDelMes; dia++) {
+    const fecha = diaISO(mesVisible, dia);
+    const gastadoHoy = datos.gastos
+      .filter((g) => g.fecha === fecha)
+      .reduce((suma, g) => suma + g.cantidad, 0);
+    const hayIngreso = ingresosDelMes.some((i) => i.dia === dia);
+    const hayFijo = fijosDelMes.some((f) => f.dia === dia);
+
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "dia";
+    if (fecha === hoyISO()) boton.classList.add("hoy");
+    if (gastadoHoy > 0) boton.classList.add("con-gasto");
+    boton.title = `Apuntar un gasto del ${dia} de ${nombreDelMes(mesVisible)}`;
+
+    const numero = document.createElement("span");
+    numero.className = "dia-numero";
+    numero.textContent = dia;
+    boton.append(numero);
+
+    if (gastadoHoy > 0) {
+      const importe = document.createElement("span");
+      importe.className = "dia-importe";
+      importe.textContent = Math.round(gastadoHoy) + " €";
+      boton.append(importe);
+    }
+
+    if (hayIngreso || hayFijo || gastadoHoy > 0) {
+      const puntos = document.createElement("span");
+      puntos.className = "dia-puntos";
+      if (hayIngreso) puntos.append(crearPunto("punto-ingreso"));
+      if (hayFijo) puntos.append(crearPunto("punto-fijo"));
+      if (gastadoHoy > 0) puntos.append(crearPunto("punto-gasto"));
+      boton.append(puntos);
+    }
+
+    boton.addEventListener("click", () => {
+      cancelarEdicion();
+      irATab("gastos");
+      $("#inputFechaGasto").value = fecha;
+      $("#inputCantidadGasto").focus();
+      avisar(`Apuntando un gasto del ${dia} de ${nombreDelMes(mesVisible)}`);
+    });
+
+    rejilla.append(boton);
+  }
+}
+
+function crearPunto(clase) {
+  const punto = document.createElement("i");
+  punto.className = "punto " + clase;
+  return punto;
+}
+
+/* ---------- listas ---------- */
+
+function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorrar, alTocar }) {
   const li = document.createElement("li");
 
   const icono = document.createElement("span");
@@ -206,6 +339,12 @@ function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorra
 
   li.append(icono, datosDiv, cantidadSpan);
 
+  if (alTocar) {
+    li.classList.add("tocable");
+    li.title = "Tocar para corregirlo";
+    [icono, datosDiv, cantidadSpan].forEach((parte) => parte.addEventListener("click", alTocar));
+  }
+
   if (alBorrar) {
     const borrar = document.createElement("button");
     borrar.className = "mov-borrar";
@@ -219,12 +358,11 @@ function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorra
 }
 
 function pintarMovimientos() {
-  const mes = mesActualClave();
   const lista = $("#listaMovimientos");
   lista.innerHTML = "";
 
   const gastosMes = datos.gastos
-    .filter((g) => g.fecha.startsWith(mes))
+    .filter((g) => g.fecha.startsWith(mesVisible))
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
     .slice(0, 8);
 
@@ -236,10 +374,51 @@ function pintarMovimientos() {
       detalle: `${cat.nombre} · día ${Number(gasto.fecha.slice(8, 10))}`,
       cantidad: gasto.cantidad,
       esGasto: true,
+      alTocar: () => editarGasto(gasto.id),
     }));
   }
 
   $("#vacioMovimientos").classList.toggle("visible", gastosMes.length === 0);
+}
+
+function pintarMeses() {
+  const lista = $("#listaMeses");
+  lista.innerHTML = "";
+
+  const meses = mesesConDatos();
+  for (const mes of meses) {
+    const { ingresosMes, fijosMes, gastosMes, disponible } = calcularMes(mes);
+    if (ingresosMes === 0 && fijosMes === 0 && gastosMes === 0 && mes !== mesActualClave()) continue;
+
+    const li = document.createElement("li");
+    li.className = "mes-fila" + (mes === mesVisible ? " activa" : "");
+
+    const datosDiv = document.createElement("div");
+    datosDiv.className = "mov-datos";
+    const nombreDiv = document.createElement("div");
+    nombreDiv.className = "mov-nombre";
+    nombreDiv.textContent = nombreDelMes(mes) + (mes === mesActualClave() ? " (este mes)" : "");
+    const detalleDiv = document.createElement("div");
+    detalleDiv.className = "mov-detalle";
+    detalleDiv.textContent = `Entró ${dinero(ingresosMes)} · se fue ${dinero(fijosMes + gastosMes)}`;
+    datosDiv.append(nombreDiv, detalleDiv);
+
+    const saldo = document.createElement("span");
+    saldo.className = "mov-cantidad " + (disponible < 0 ? "negativo" : "positivo");
+    saldo.textContent = dinero(disponible);
+
+    li.append(datosDiv, saldo);
+    li.addEventListener("click", () => {
+      mesVisible = mes;
+      pintarTodo();
+      irATab("inicio");
+      avisar(`Mirando ${nombreDelMes(mes)}`);
+    });
+
+    lista.append(li);
+  }
+
+  $("#vacioMeses").classList.toggle("visible", lista.children.length === 0);
 }
 
 function pintarIngresos() {
@@ -250,7 +429,7 @@ function pintarIngresos() {
     lista.append(elementoMovimiento({
       emoji: cat.emoji,
       nombre: ingreso.nombre,
-      detalle: `${cat.nombre} · ${ingreso.mensual ? `cada mes, el día ${ingreso.dia}` : `solo una vez, el día ${ingreso.dia}`}`,
+      detalle: `${cat.nombre} · ${ingreso.mensual ? `cada mes, el día ${ingreso.dia}` : `solo en ${nombreDelMes(ingreso.mes)}, el día ${ingreso.dia}`}`,
       cantidad: ingreso.cantidad,
       esGasto: false,
       alBorrar: () => {
@@ -258,12 +437,13 @@ function pintarIngresos() {
         datos.ingresos = datos.ingresos.filter((i) => i.id !== ingreso.id);
         guardarDatos();
         pintarTodo();
+        avisar("Ingreso borrado");
       },
     }));
   }
   const { ingresosMes, ingresosAnio } = calcularMes();
   $("#totalIngresos").textContent = datos.ingresos.length
-    ? `Ingresas ${dinero(ingresosMes)} este mes · ${dinero(ingresosAnio)} al año`
+    ? `Ingresas ${dinero(ingresosMes)} en ${nombreDelMes(mesVisible)} · ${dinero(ingresosAnio)} al año`
     : "";
   $("#vacioIngresos").classList.toggle("visible", datos.ingresos.length === 0);
 }
@@ -271,14 +451,16 @@ function pintarIngresos() {
 function pintarFijos() {
   const lista = $("#listaFijos");
   lista.innerHTML = "";
-  const mes = mesActualClave();
   const ordenados = [...datos.fijos].sort((a, b) => a.dia - b.dia);
+
   for (const fijo of ordenados) {
     const cat = categoriaDe(CATEGORIAS_FIJO, fijo.categoria);
     const esAnual = fijo.periodicidad === "anual";
-    const restantes = mesesRestantes(fijo, mes);
+    const restantes = mesesRestantes(fijo, mesVisible);
     let detalle;
-    if (restantes === 0) {
+    if (!yaExistiaEn(fijo, mesVisible)) {
+      detalle = `${cat.nombre} · aún no lo pagabas en ${nombreDelMes(mesVisible)}`;
+    } else if (restantes === 0) {
       detalle = `${cat.nombre} · ✅ terminado de pagar, ya no cuenta`;
     } else if (esAnual) {
       detalle = `${cat.nombre} · ${dinero(fijo.cantidad)} una vez al año · sale a ${dinero(fijo.cantidad / 12)}/mes`;
@@ -287,6 +469,7 @@ function pintarFijos() {
     } else {
       detalle = `${cat.nombre} · te lo cobran el día ${fijo.dia}`;
     }
+
     lista.append(elementoMovimiento({
       emoji: cat.emoji,
       nombre: fijo.nombre,
@@ -298,9 +481,11 @@ function pintarFijos() {
         datos.fijos = datos.fijos.filter((f) => f.id !== fijo.id);
         guardarDatos();
         pintarTodo();
+        avisar("Gasto fijo borrado");
       },
     }));
   }
+
   const { fijosMes, fijosAnio } = calcularMes();
   $("#totalFijos").textContent = datos.fijos.length
     ? `Total fijo: ${dinero(fijosMes)} al mes · ${dinero(fijosAnio)} al año`
@@ -309,11 +494,10 @@ function pintarFijos() {
 }
 
 function pintarGastos() {
-  const mes = mesActualClave();
   const lista = $("#listaGastos");
   lista.innerHTML = "";
   const gastosMes = datos.gastos
-    .filter((g) => g.fecha.startsWith(mes))
+    .filter((g) => g.fecha.startsWith(mesVisible))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   for (const gasto of gastosMes) {
@@ -324,16 +508,21 @@ function pintarGastos() {
       detalle: `${cat.nombre} · día ${Number(gasto.fecha.slice(8, 10))}`,
       cantidad: gasto.cantidad,
       esGasto: true,
+      alTocar: () => editarGasto(gasto.id),
       alBorrar: () => {
         datos.gastos = datos.gastos.filter((g) => g.id !== gasto.id);
+        if (editandoGastoId === gasto.id) cancelarEdicion();
         guardarDatos();
         pintarTodo();
+        avisar("Gasto borrado");
       },
     }));
   }
 
   const total = gastosMes.reduce((s, g) => s + g.cantidad, 0);
-  $("#totalGastosMes").textContent = gastosMes.length ? `Gastado este mes: ${dinero(total)}` : "";
+  $("#totalGastosMes").textContent = gastosMes.length
+    ? `Gastado en ${nombreDelMes(mesVisible)}: ${dinero(total)}`
+    : "";
   $("#vacioGastos").classList.toggle("visible", gastosMes.length === 0);
 }
 
@@ -362,16 +551,31 @@ function pintarAjustes() {
   });
 }
 
-/* ---------- selects de categorías ---------- */
+/* ---------- chips de categorías ---------- */
 
-function rellenarSelect(select, categorias) {
-  select.innerHTML = "";
+function pintarChips(contenedorSel, categorias, campoSel) {
+  const contenedor = $(contenedorSel);
+  const campo = $(campoSel);
+  contenedor.innerHTML = "";
+  if (!campo.value) campo.value = categorias[0].id;
+
   for (const cat of categorias) {
-    const opcion = document.createElement("option");
-    opcion.value = cat.id;
-    opcion.textContent = `${cat.emoji} ${cat.nombre}`;
-    select.append(opcion);
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip chip-categoria" + (cat.id === campo.value ? " activo" : "");
+    chip.dataset.id = cat.id;
+    chip.textContent = `${cat.emoji} ${cat.nombre}`;
+    chip.addEventListener("click", () => {
+      campo.value = cat.id;
+      contenedor.querySelectorAll(".chip").forEach((c) => c.classList.toggle("activo", c.dataset.id === cat.id));
+    });
+    contenedor.append(chip);
   }
+}
+
+function marcarChip(contenedorSel, campoSel, id) {
+  $(campoSel).value = id;
+  $(contenedorSel).querySelectorAll(".chip").forEach((c) => c.classList.toggle("activo", c.dataset.id === id));
 }
 
 /* ---------- navegación entre pestañas ---------- */
@@ -382,68 +586,147 @@ function irATab(nombre) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function cambiarMes(n) {
+  mesVisible = sumarMeses(mesVisible, n);
+  pintarTodo();
+}
+
+/* ---------- editar un gasto ---------- */
+
+let editandoGastoId = null;
+
+function editarGasto(id) {
+  const gasto = datos.gastos.find((g) => g.id === id);
+  if (!gasto) return;
+
+  editandoGastoId = id;
+  irATab("gastos");
+  $("#inputCantidadGasto").value = gasto.cantidad;
+  $('#formGasto [name="nota"]').value = gasto.nota || "";
+  $("#inputFechaGasto").value = gasto.fecha;
+  marcarChip("#chipsCategoriaGasto", "#categoriaGastoElegida", gasto.categoria);
+
+  $("#tituloGastos").textContent = "✏️ Corregir un gasto";
+  $("#ayudaGastos").textContent = "Cambia lo que quieras y dale a guardar. Si te has equivocado de todo, cancela y no se toca nada.";
+  $("#btnGuardarGasto").textContent = "Guardar los cambios";
+  $("#btnCancelarEdicion").hidden = false;
+  $("#inputCantidadGasto").focus();
+}
+
+function cancelarEdicion() {
+  editandoGastoId = null;
+  $("#formGasto").reset();
+  $("#inputFechaGasto").value = hoyISO();
+  marcarChip("#chipsCategoriaGasto", "#categoriaGastoElegida", CATEGORIAS_GASTO[0].id);
+  $("#tituloGastos").textContent = "🛒 Gastos del día a día";
+  $("#ayudaGastos").textContent = "Cada vez que compres algo, apúntalo aquí en 10 segundos y se descuenta solo de lo que te queda.";
+  $("#btnGuardarGasto").textContent = "Apuntar gasto";
+  $("#btnCancelarEdicion").hidden = true;
+}
+
 /* ---------- eventos ---------- */
 
 document.querySelectorAll(".nav-boton").forEach((boton) => {
   boton.addEventListener("click", () => irATab(boton.dataset.tab));
 });
 
+$("#btnMesAnterior").addEventListener("click", () => cambiarMes(-1));
+$("#btnMesSiguiente").addEventListener("click", () => cambiarMes(1));
+$("#btnVolverHoy").addEventListener("click", () => {
+  mesVisible = mesActualClave();
+  pintarTodo();
+});
+
 $("#btnGastoRapido").addEventListener("click", () => {
+  cancelarEdicion();
   irATab("gastos");
   $("#inputCantidadGasto").focus();
+});
+
+document.querySelectorAll("#formGasto [data-atajo]").forEach((boton) => {
+  boton.addEventListener("click", () => {
+    const d = new Date();
+    d.setDate(d.getDate() - Number(boton.dataset.atajo));
+    $("#inputFechaGasto").value = `${d.getFullYear()}-${dosDigitos(d.getMonth() + 1)}-${dosDigitos(d.getDate())}`;
+  });
 });
 
 $("#formIngreso").addEventListener("submit", (evento) => {
   evento.preventDefault();
   const form = new FormData(evento.target);
+  const nombre = form.get("nombre").trim();
   datos.ingresos.push({
     id: nuevoId(),
-    nombre: form.get("nombre").trim(),
+    nombre,
     tipo: form.get("tipo"),
     cantidad: parseFloat(form.get("cantidad")),
     dia: parseInt(form.get("dia"), 10),
     mensual: form.get("mensual") === "on",
-    mes: mesActualClave(),
+    mes: mesVisible,
+    desde: mesVisible,
   });
   guardarDatos();
   evento.target.reset();
   evento.target.querySelector('[name="mensual"]').checked = true;
+  marcarChip("#chipsTipoIngreso", "#tipoIngresoElegido", CATEGORIAS_INGRESO[0].id);
   pintarTodo();
+  avisar(`✅ Ingreso "${nombre}" guardado`);
 });
 
 $("#formFijo").addEventListener("submit", (evento) => {
   evento.preventDefault();
   const form = new FormData(evento.target);
   const meses = parseInt(form.get("meses"), 10);
+  const nombre = form.get("nombre").trim();
   datos.fijos.push({
     id: nuevoId(),
-    nombre: form.get("nombre").trim(),
+    nombre,
     cantidad: parseFloat(form.get("cantidad")),
     dia: parseInt(form.get("dia"), 10),
     categoria: form.get("categoria"),
     periodicidad: form.get("periodicidad"),
-    fin: form.get("periodicidad") === "mensual" && meses > 0 ? sumarMeses(mesActualClave(), meses) : null,
+    fin: form.get("periodicidad") === "mensual" && meses > 0 ? sumarMeses(mesVisible, meses) : null,
+    desde: mesVisible,
   });
   guardarDatos();
   evento.target.reset();
+  marcarChip("#chipsCategoriaFijo", "#categoriaFijoElegida", CATEGORIAS_FIJO[0].id);
   pintarTodo();
+  avisar(`✅ Gasto fijo "${nombre}" guardado`);
 });
 
 $("#formGasto").addEventListener("submit", (evento) => {
   evento.preventDefault();
   const form = new FormData(evento.target);
-  datos.gastos.push({
-    id: nuevoId(),
-    cantidad: parseFloat(form.get("cantidad")),
-    categoria: form.get("categoria"),
-    nota: form.get("nota").trim(),
-    fecha: form.get("fecha"),
-  });
+  const cantidad = parseFloat(form.get("cantidad"));
+  const categoria = form.get("categoria");
+  const cat = categoriaDe(CATEGORIAS_GASTO, categoria);
+
+  if (editandoGastoId) {
+    const gasto = datos.gastos.find((g) => g.id === editandoGastoId);
+    Object.assign(gasto, { cantidad, categoria, nota: form.get("nota").trim(), fecha: form.get("fecha") });
+    cancelarEdicion();
+    guardarDatos();
+    pintarTodo();
+    avisar(`✏️ Gasto corregido, ahora son ${dinero(cantidad)}`);
+    irATab("inicio");
+    return;
+  }
+
+  const fecha = form.get("fecha");
+  datos.gastos.push({ id: nuevoId(), cantidad, categoria, nota: form.get("nota").trim(), fecha });
   guardarDatos();
-  evento.target.reset();
-  evento.target.querySelector('[name="fecha"]').value = hoyISO();
+  cancelarEdicion();
+  // el mes que se mira salta al del gasto, para que no parezca que se ha perdido
+  if (!fecha.startsWith(mesVisible)) mesVisible = fecha.slice(0, 7);
   pintarTodo();
+  avisar(`✅ Apuntado ${dinero(cantidad)} en ${cat.nombre}`);
   irATab("inicio");
+});
+
+$("#btnCancelarEdicion").addEventListener("click", () => {
+  cancelarEdicion();
+  avisar("Cambios cancelados");
 });
 
 $("#formAjustes").addEventListener("submit", (evento) => {
@@ -452,6 +735,7 @@ $("#formAjustes").addEventListener("submit", (evento) => {
   datos.ajustes.emoji = $("#ajusteEmoji").value.trim() || "💶";
   guardarDatos();
   pintarTodo();
+  avisar("✅ Ajustes guardados");
 });
 
 document.querySelectorAll("#opcionesTema .chip").forEach((chip) => {
@@ -469,6 +753,7 @@ $("#btnExportar").addEventListener("click", () => {
   enlace.download = `moneorq-copia-${hoyISO()}.json`;
   enlace.click();
   URL.revokeObjectURL(enlace.href);
+  avisar("💾 Copia descargada");
 });
 
 $("#btnImportar").addEventListener("click", () => $("#inputImportar").click());
@@ -482,6 +767,8 @@ $("#inputImportar").addEventListener("change", (evento) => {
       const importado = JSON.parse(lector.result);
       if (!importado.ajustes || !Array.isArray(importado.gastos)) throw new Error("formato");
       datos = { ...datosPorDefecto(), ...importado, ajustes: { ...datosPorDefecto().ajustes, ...importado.ajustes } };
+      datos.ingresos = datos.ingresos.map((i) => ({ tipo: "nomina", desde: null, ...i }));
+      datos.fijos = datos.fijos.map((f) => ({ periodicidad: "mensual", fin: null, desde: null, ...f }));
       guardarDatos();
       pintarTodo();
       alert("✅ Copia recuperada correctamente.");
@@ -496,6 +783,7 @@ $("#inputImportar").addEventListener("change", (evento) => {
 $("#btnBorrarTodo").addEventListener("click", () => {
   if (!confirm("¿Seguro que quieres borrar TODOS los datos? Esto no se puede deshacer.")) return;
   datos = datosPorDefecto();
+  mesVisible = mesActualClave();
   guardarDatos();
   pintarTodo();
   irATab("inicio");
@@ -503,8 +791,8 @@ $("#btnBorrarTodo").addEventListener("click", () => {
 
 /* ---------- arranque ---------- */
 
-rellenarSelect($("#selectCategoriaGasto"), CATEGORIAS_GASTO);
-rellenarSelect($("#selectCategoriaFijo"), CATEGORIAS_FIJO);
-rellenarSelect($("#selectTipoIngreso"), CATEGORIAS_INGRESO);
-document.querySelector('#formGasto [name="fecha"]').value = hoyISO();
+pintarChips("#chipsCategoriaGasto", CATEGORIAS_GASTO, "#categoriaGastoElegida");
+pintarChips("#chipsCategoriaFijo", CATEGORIAS_FIJO, "#categoriaFijoElegida");
+pintarChips("#chipsTipoIngreso", CATEGORIAS_INGRESO, "#tipoIngresoElegido");
+$("#inputFechaGasto").value = hoyISO();
 pintarTodo();
