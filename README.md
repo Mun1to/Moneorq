@@ -6,6 +6,8 @@ Moneorq nace de un problema muy real: hay muchas personas que ganan poco, pagan 
 
 👉 **[Abrir Moneorq](https://mun1to.github.io/Moneorq/)** · 📖 **[Guía para empezar](GUIA.md)**
 
+> La guía está también **dentro de la app**, en el botón ❓ de arriba a la izquierda, porque quien la usa no entra a GitHub. Y la pantalla de inicio enseña los tres primeros pasos hasta que están hechos.
+
 ## ✨ Qué hace
 
 - **📥 Ingresos líquidos**, apunta lo que *de verdad* te entra en la cuenta (ya con impuestos descontados) y qué día lo cobras. Mensuales (nómina, pensión) o puntuales (un plus, un trabajillo, dinero de un amigo).

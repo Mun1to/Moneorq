@@ -231,6 +231,7 @@ async function quitarFila(tabla, id) {
 function pintarTodo() {
   pintarCabecera();
   pintarResumen();
+  pintarPrimerosPasos();
   pintarCalendario();
   pintarMovimientos();
   pintarMeses();
@@ -267,6 +268,45 @@ function pintarCabecera() {
   $("#barraDetalle").textContent = ingresosMes > 0
     ? `Has usado ${dinero(usado)} de ${dinero(ingresosMes)} (${Math.round(porcentaje)}%)`
     : "Apunta tus ingresos para ver cuánto te queda";
+}
+
+// los tres primeros pasos, que desaparecen solos cuando están hechos
+function pintarPrimerosPasos() {
+  const pasos = [
+    { hecho: datos.ingresos.length > 0, texto: "Apunta lo que cobras", tab: "ingresos" },
+    { hecho: datos.fijos.length > 0, texto: "Apunta lo que pagas siempre", tab: "fijos" },
+    { hecho: datos.gastos.length > 0, texto: "Apunta tu primer gasto", tab: "gastos" },
+  ];
+
+  $("#primerosPasos").hidden = pasos.every((p) => p.hecho);
+
+  const lista = $("#pasosLista");
+  lista.innerHTML = "";
+  for (const paso of pasos) {
+    const li = document.createElement("li");
+    li.className = "paso" + (paso.hecho ? " hecho" : "");
+
+    const marca = document.createElement("span");
+    marca.className = "paso-marca";
+    marca.textContent = paso.hecho ? "✅" : "⬜";
+
+    const texto = document.createElement("span");
+    texto.className = "paso-texto";
+    texto.textContent = paso.texto;
+
+    li.append(marca, texto);
+
+    if (!paso.hecho) {
+      const ir = document.createElement("button");
+      ir.type = "button";
+      ir.className = "paso-ir";
+      ir.textContent = "Ir";
+      ir.addEventListener("click", () => irATab(paso.tab));
+      li.append(ir);
+    }
+
+    lista.append(li);
+  }
 }
 
 function pintarEstadoNube() {
@@ -830,6 +870,16 @@ function alCambiarLaNube() {
 
 document.querySelectorAll(".nav-boton").forEach((boton) => {
   boton.addEventListener("click", () => irATab(boton.dataset.tab));
+});
+
+$("#btnAbrirAyuda").addEventListener("click", () => {
+  irATab("ayuda");
+  document.querySelectorAll(".nav-boton").forEach((b) => b.classList.remove("activo"));
+});
+
+$("#btnAyudaDesdePasos").addEventListener("click", () => {
+  irATab("ayuda");
+  document.querySelectorAll(".nav-boton").forEach((b) => b.classList.remove("activo"));
 });
 
 $("#btnAbrirAjustes").addEventListener("click", () => {

@@ -47,6 +47,11 @@ body[data-tema="oscuro"] {
 
 * { box-sizing: border-box; }
 
+/* El atributo hidden lo esconde el navegador con display:none, pero cualquier
+   regla nuestra con display:flex lo pisa y el elemento se sigue viendo.
+   Esta línea manda: si algo lleva hidden, no se ve, y punto. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -574,6 +579,22 @@ h2 { font-size: 1.1rem; margin: 22px 0 10px; }
 
 .cabecera { position: relative; }
 
+.cabecera-ayuda {
+  position: absolute;
+  top: 16px;
+  left: 14px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cabecera-ayuda:hover { background: rgba(255, 255, 255, 0.32); }
+
 .cabecera-ajustes {
   position: absolute;
   top: 16px;
@@ -614,6 +635,82 @@ h2 { font-size: 1.1rem; margin: 22px 0 10px; }
 .aviso-caja p { margin: 0; font-size: 0.92rem; }
 
 .cuenta-linea { margin: 0; font-size: 0.9rem; font-weight: 600; }
+
+/* ---------- Primeros pasos ---------- */
+
+.pasos {
+  background: var(--superficie);
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  padding: 14px 16px 12px;
+  margin-top: 16px;
+  box-shadow: var(--sombra);
+}
+
+.pasos-titulo { margin: 0 0 8px; font-size: 1rem; }
+
+.pasos-lista { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.paso { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; }
+.paso.hecho { color: var(--texto-suave); }
+.paso.hecho .paso-texto { text-decoration: line-through; }
+.paso-texto { flex: 1; }
+
+.paso-ir {
+  border: none;
+  background: var(--acento);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- Guía dentro de la app ---------- */
+
+.guia {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.guia summary {
+  padding: 14px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guia summary::-webkit-details-marker { display: none; }
+
+.guia summary::before {
+  content: "＋";
+  color: var(--acento);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.guia[open] summary::before { content: "－"; }
+.guia[open] summary { border-bottom: 1px solid var(--borde); }
+
+.guia p {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--texto-suave);
+}
+
+.guia p:first-of-type { padding-top: 14px; }
+.guia p:last-child { padding-bottom: 16px; }
+.guia strong { color: var(--texto); }
 
 /* ---------- Pantallas estrechas: caben seis pestañas ---------- */
 

@@ -54,6 +54,7 @@
   </div>
 
   <header class="cabecera">
+    <button type="button" class="cabecera-ayuda" id="btnAbrirAyuda" aria-label="Cómo se usa">❓</button>
     <button type="button" class="cabecera-ajustes" id="btnAbrirAjustes" aria-label="Ajustes y perfil">⚙️</button>
     <div class="cabecera-contenido">
       <div class="monedero">
@@ -102,6 +103,12 @@
           <span class="tarjeta-titulo">📅 En un año</span>
           <span class="anual-texto" id="resumenAnual"></span>
         </div>
+      </div>
+
+      <div class="pasos" id="primerosPasos" hidden>
+        <h2 class="pasos-titulo">👋 Para empezar, tres cosas</h2>
+        <ol class="pasos-lista" id="pasosLista"></ol>
+        <button type="button" class="enlace-suave" id="btnAyudaDesdePasos">Explícamelo con calma</button>
       </div>
 
       <button class="boton-grande" id="btnGastoRapido">＋ Añadir un gasto</button>
@@ -291,6 +298,92 @@
 
       <ul class="lista" id="listaDeudas"></ul>
       <p class="vacio" id="vacioDeudas">No hay deudas apuntadas. Mejor así.</p>
+    </section>
+
+    <!-- ============ AYUDA ============ -->
+    <section id="tab-ayuda" class="tab">
+      <h2>❓ Cómo se usa Moneorq</h2>
+      <p class="ayuda">Toca cualquier pregunta para ver la respuesta. No hace falta leerlo todo de seguido.</p>
+
+      <details class="guia" open>
+        <summary>¿Para qué sirve esto?</summary>
+        <p>Para saber, en cualquier momento, <strong>cuánto dinero te queda de verdad este mes</strong>.</p>
+        <p>Le dices una vez lo que cobras y lo que pagas siempre (alquiler, luz, internet…), y a partir de ahí solo tienes que apuntar lo que vas gastando. El número grande de arriba es lo que te queda.</p>
+      </details>
+
+      <details class="guia">
+        <summary>1. Apunta lo que cobras</summary>
+        <p>Ve a <strong>📥 Ingresos</strong>. Pon lo que <strong>de verdad te entra en la cuenta</strong>, el dinero limpio, no lo que pone en el contrato.</p>
+        <p>Escribe de qué es (nómina, pensión), cuánto y qué día te lo ingresan. Si se repite todos los meses, deja marcada esa casilla. Si fue una cosa de una vez, quítala.</p>
+      </details>
+
+      <details class="guia">
+        <summary>2. Apunta lo que pagas siempre</summary>
+        <p>Ve a <strong>📌 Fijos</strong>. Aquí va lo que te cobran sí o sí sin que hagas nada: alquiler o hipoteca, luz, agua, gas, internet, móvil, abono de transporte, Spotify, seguros…</p>
+        <p>Si algo <strong>se paga una vez al año</strong>, como el seguro del coche, elígelo y la app lo reparte entre los doce meses para que no te lleves el susto de golpe.</p>
+        <p>Si algo <strong>se te acaba</strong>, como las letras de un ordenador, pon cuántos meses te quedan y la app dejará de contarlo sola cuando termines de pagarlo.</p>
+        <p><strong>La comida no va aquí</strong>, porque cambia cada mes. Va en gastos del día a día.</p>
+      </details>
+
+      <details class="guia">
+        <summary>3. Apunta cada gasto, esto es lo importante</summary>
+        <p>Cada vez que gastes, aunque sea un café, toca el botón grande <strong>＋ Añadir un gasto</strong>. Son diez segundos.</p>
+        <p>Pones cuánto, tocas en qué te lo has gastado, y ya. Sale <strong>Hoy</strong> puesto; si fue ayer, tocas <strong>Ayer</strong>.</p>
+        <p><strong>Si te equivocas</strong>, toca ese gasto en la lista, cámbialo y guarda. No hace falta borrarlo.</p>
+      </details>
+
+      <details class="guia">
+        <summary>Ver otros meses y el calendario</summary>
+        <p>Con las flechas <strong>‹ ›</strong> de arriba te mueves a cualquier mes, hacia atrás o hacia delante, y ves lo que pasó o lo que va a pasar en ese mes.</p>
+        <p>En el <strong>calendario</strong> de la pantalla de inicio, cada día te enseña lo que gastaste. Un punto verde es el día que te pagan, uno naranja el día que te cobran y uno rojo si gastaste.</p>
+        <p><strong>Truco</strong>: toca cualquier día del calendario y apuntas un gasto de ese día, aunque haya sido hace dos semanas.</p>
+        <p>En la pestaña <strong>🗓️ Meses</strong> los tienes todos en una lista con lo que quedó en cada uno.</p>
+      </details>
+
+      <details class="guia">
+        <summary>¿Cuenta o sin cuenta?</summary>
+        <p><strong>Sin cuenta</strong>: todo se guarda en este aparato y no sale de aquí. No hace falta correo ni contraseña.</p>
+        <p><strong>Con cuenta</strong>: lo que apuntas en el móvil aparece solo en el ordenador, y puedes apuntar deudas con otras personas.</p>
+        <p>Puedes empezar sin cuenta y crearla después: <strong>lo que ya tengas apuntado se sube solo</strong>, no se pierde nada. La cuenta se crea desde ⚙️ Ajustes.</p>
+        <p>Nadie más puede ver tus cuentas en ninguno de los dos casos.</p>
+      </details>
+
+      <details class="guia">
+        <summary>Deudas con otras personas</summary>
+        <p>Hace falta que las dos personas tengáis cuenta.</p>
+        <p>Cada uno se pone un <strong>alias</strong> en ⚙️ Ajustes, por ejemplo <em>mama.rosa</em>. Es lo único que os tenéis que dar, <strong>nunca el correo</strong>.</p>
+        <p>En <strong>🤝 Deudas</strong> escribes el alias de la otra persona, tocas Buscar, dices quién puso el dinero, de qué es y cuánto. Los dos veis la misma deuda, y cuando se pague, cualquiera la toca y la marca como pagada.</p>
+      </details>
+
+      <details class="guia">
+        <summary>¿Y si no tengo internet?</summary>
+        <p>Apunta igual, no pasa nada. Se guarda en el móvil y se sube solo cuando vuelve la cobertura.</p>
+        <p>Arriba del todo te lo dice siempre: <strong>☁️ Guardado en la nube</strong>, <strong>📴 1 cambio esperando internet</strong> o <strong>📱 Solo en este aparato</strong>.</p>
+      </details>
+
+      <details class="guia">
+        <summary>Guardar una copia por si acaso</summary>
+        <p>En ⚙️ Ajustes, <strong>⬇️ Descargar mis datos</strong> te baja un archivo con todo.</p>
+        <p>Si usas la app <strong>sin cuenta, esto es importante</strong>: si cambias de móvil o borras los datos del navegador, sin esa copia se pierde todo. Para recuperarla, en el aparato nuevo entra en Ajustes y toca <strong>⬆️ Recuperar una copia</strong>.</p>
+      </details>
+
+      <details class="guia">
+        <summary>Tenerla a mano como una app</summary>
+        <p><strong>En Android</strong>, con Chrome: toca el menú de los tres puntitos de arriba a la derecha y elige <em>Añadir a pantalla de inicio</em>.</p>
+        <p><strong>En iPhone</strong>, con Safari: toca el botón de compartir, el cuadrado con la flecha, y elige <em>Añadir a pantalla de inicio</em>.</p>
+        <p>Te queda un icono junto a los demás y se abre con un toque.</p>
+      </details>
+
+      <details class="guia">
+        <summary>¿Por qué me sale menos dinero del que creía?</summary>
+        <p>Porque la app cuenta <strong>los gastos fijos del mes entero desde el día 1</strong>, aunque todavía no te los hayan cobrado.</p>
+        <p>Es a propósito: ese dinero ya tiene dueño, y es mejor saberlo el día 3 que el día 28.</p>
+      </details>
+
+      <details class="guia">
+        <summary>Se me ha olvidado la contraseña</summary>
+        <p>En la pantalla de entrar, escribe tu correo y toca <strong>He olvidado mi contraseña</strong>. Te llega un correo, pulsas el enlace y pones una nueva ahí mismo.</p>
+      </details>
     </section>
 
     <!-- ============ AJUSTES ============ -->
