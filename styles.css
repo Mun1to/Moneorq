@@ -511,6 +511,110 @@ h2 { font-size: 1.1rem; margin: 22px 0 10px; }
 
 .aviso.visible { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Pantalla de acceso ---------- */
+
+.acceso {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--fondo);
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px 40px;
+}
+
+.acceso-caja { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+
+.acceso-marca {
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.acceso-lema { text-align: center; color: var(--texto-suave); margin: 0 0 6px; }
+
+.acceso-pestanas { display: flex; gap: 8px; }
+.acceso-pestanas .chip { flex: 1; text-align: center; }
+
+.acceso-aviso {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--positivo);
+  background: var(--fondo);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.acceso-aviso.malo { color: var(--negativo); }
+
+.acceso-nota { text-align: center; line-height: 1.6; margin: 4px 0 0; }
+
+.enlace-suave {
+  border: none;
+  background: none;
+  color: var(--texto-suave);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.enlace-suave:hover { color: var(--acento); }
+
+/* ---------- Cabecera: botón de ajustes y estado ---------- */
+
+.cabecera { position: relative; }
+
+.cabecera-ajustes {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cabecera-ajustes:hover { background: rgba(255, 255, 255, 0.32); }
+
+.estado-nube { margin: 4px 0 0; font-size: 0.72rem; opacity: 0.85; }
+
+/* ---------- Deudas y cuenta ---------- */
+
+.tarjetas-resumen.dos { grid-template-columns: repeat(2, 1fr); }
+
+.lista li.saldada { opacity: 0.6; }
+.lista li.saldada .mov-nombre { text-decoration: line-through; }
+
+.aviso-caja {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--sombra);
+}
+
+.aviso-caja p { margin: 0; font-size: 0.92rem; }
+
+.cuenta-linea { margin: 0; font-size: 0.9rem; font-weight: 600; }
+
 /* ---------- Pantallas estrechas: caben seis pestañas ---------- */
 
 @media (max-width: 430px) {

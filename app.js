@@ -1,9 +1,14 @@
 /* ==========================================================
    Moneorq, lógica de la app
-   Todos los datos viven en localStorage, en este navegador.
+
+   Funciona de dos maneras:
+   - sin cuenta: todo vive en localStorage y no sale de este navegador.
+   - con cuenta: además se guarda en la nube y aparece solo en los otros
+     aparatos. Si no hay internet, se apunta igual y se sube después.
    ========================================================== */
 
 const CLAVE_DATOS = "moneorq-datos";
+const CLAVE_MODO = "moneorq-modo";
 
 const CATEGORIAS_GASTO = [
   { id: "supermercado", nombre: "Supermercado / comida", emoji: "🛒" },
@@ -36,13 +41,16 @@ const CATEGORIAS_FIJO = [
 const COLORES = ["#2e7d5b", "#2563b8", "#7c4fc4", "#c2417f", "#c45c1d", "#b8862e", "#37808c", "#5a5f6b"];
 
 const datosPorDefecto = () => ({
-  ajustes: { nombre: "Mi monedero", emoji: "💶", color: COLORES[0], tema: "auto" },
+  ajustes: { nombre: "Mi monedero", emoji: "💶", color: COLORES[0], tema: "auto", alias: "" },
   ingresos: [],   // { id, nombre, tipo, cantidad, dia, mensual, mes, desde }
   fijos: [],      // { id, nombre, cantidad, dia, categoria, periodicidad, fin, desde }
-  gastos: [],     // { id, cantidad, categoria, nota, fecha }   (fecha: "2026-09-05")
+  gastos: [],     // { id, cantidad, categoria, nota, fecha }
+  deudas: [],     // { id, acreedor, deudor, concepto, cantidad, fecha, pagada }
+  personas: [],   // { id, nombre, alias } de la gente con la que compartes deudas
 });
 
 let datos = cargarDatos();
+let modo = localStorage.getItem(CLAVE_MODO) || null;
 
 function cargarDatos() {
   try {
@@ -71,7 +79,11 @@ const $ = (sel) => document.querySelector(sel);
 const formatoMoneda = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const dinero = (n) => formatoMoneda.format(n);
 
-const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// identificador compatible con la nube; el de repuesto solo se usa sin cuenta
+const nuevoId = () =>
+  (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 const dosDigitos = (n) => String(n).padStart(2, "0");
 
@@ -178,6 +190,42 @@ function avisar(texto) {
   }, 2800);
 }
 
+/* ==========================================================
+   Guardar: primero aquí, y si hay cuenta, también en la nube
+   ========================================================== */
+
+async function anadirFila(tabla, fila) {
+  datos[tabla].push(fila);
+  guardarDatos();
+  pintarTodo();
+  if (!Nube.hayCuenta()) return;
+  const r = await Nube.insertar(tabla, fila);
+  if (!r.ok) avisar("📴 Apuntado aquí, se subirá cuando vuelva internet");
+  pintarEstadoNube();
+}
+
+async function cambiarFila(tabla, id, cambios) {
+  const fila = datos[tabla].find((f) => f.id === id);
+  if (!fila) return;
+  Object.assign(fila, cambios);
+  guardarDatos();
+  pintarTodo();
+  if (!Nube.hayCuenta()) return;
+  const r = await Nube.actualizar(tabla, id, cambios);
+  if (!r.ok) avisar("📴 Cambiado aquí, se subirá cuando vuelva internet");
+  pintarEstadoNube();
+}
+
+async function quitarFila(tabla, id) {
+  datos[tabla] = datos[tabla].filter((f) => f.id !== id);
+  guardarDatos();
+  pintarTodo();
+  if (!Nube.hayCuenta()) return;
+  const r = await Nube.borrar(tabla, id);
+  if (!r.ok) avisar("📴 Borrado aquí, se subirá cuando vuelva internet");
+  pintarEstadoNube();
+}
+
 /* ---------- pintado ---------- */
 
 function pintarTodo() {
@@ -189,7 +237,9 @@ function pintarTodo() {
   pintarIngresos();
   pintarFijos();
   pintarGastos();
+  pintarDeudas();
   pintarAjustes();
+  pintarEstadoNube();
 }
 
 function pintarCabecera() {
@@ -217,6 +267,18 @@ function pintarCabecera() {
   $("#barraDetalle").textContent = ingresosMes > 0
     ? `Has usado ${dinero(usado)} de ${dinero(ingresosMes)} (${Math.round(porcentaje)}%)`
     : "Apunta tus ingresos para ver cuánto te queda";
+}
+
+function pintarEstadoNube() {
+  const el = $("#estadoNube");
+  const pendientes = Nube.cola().length;
+  if (Nube.hayCuenta()) {
+    el.textContent = pendientes
+      ? `📴 ${pendientes} ${pendientes === 1 ? "cambio" : "cambios"} esperando internet`
+      : "☁️ Guardado en la nube";
+  } else {
+    el.textContent = "📱 Solo en este aparato";
+  }
 }
 
 function pintarResumen() {
@@ -316,7 +378,7 @@ function crearPunto(clase) {
 
 /* ---------- listas ---------- */
 
-function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorrar, alTocar }) {
+function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorrar, alTocar, textoCantidad }) {
   const li = document.createElement("li");
 
   const icono = document.createElement("span");
@@ -335,7 +397,7 @@ function elementoMovimiento({ emoji, nombre, detalle, cantidad, esGasto, alBorra
 
   const cantidadSpan = document.createElement("span");
   cantidadSpan.className = "mov-cantidad " + (esGasto ? "negativo" : "positivo");
-  cantidadSpan.textContent = (esGasto ? "−" : "+") + dinero(cantidad);
+  cantidadSpan.textContent = textoCantidad || (esGasto ? "−" : "+") + dinero(cantidad);
 
   li.append(icono, datosDiv, cantidadSpan);
 
@@ -385,8 +447,7 @@ function pintarMeses() {
   const lista = $("#listaMeses");
   lista.innerHTML = "";
 
-  const meses = mesesConDatos();
-  for (const mes of meses) {
+  for (const mes of mesesConDatos()) {
     const { ingresosMes, fijosMes, gastosMes, disponible } = calcularMes(mes);
     if (ingresosMes === 0 && fijosMes === 0 && gastosMes === 0 && mes !== mesActualClave()) continue;
 
@@ -434,9 +495,7 @@ function pintarIngresos() {
       esGasto: false,
       alBorrar: () => {
         if (!confirm(`¿Borrar el ingreso "${ingreso.nombre}"?`)) return;
-        datos.ingresos = datos.ingresos.filter((i) => i.id !== ingreso.id);
-        guardarDatos();
-        pintarTodo();
+        quitarFila("ingresos", ingreso.id);
         avisar("Ingreso borrado");
       },
     }));
@@ -478,9 +537,7 @@ function pintarFijos() {
       esGasto: true,
       alBorrar: () => {
         if (!confirm(`¿Borrar el gasto fijo "${fijo.nombre}"?`)) return;
-        datos.fijos = datos.fijos.filter((f) => f.id !== fijo.id);
-        guardarDatos();
-        pintarTodo();
+        quitarFila("fijos", fijo.id);
         avisar("Gasto fijo borrado");
       },
     }));
@@ -510,10 +567,8 @@ function pintarGastos() {
       esGasto: true,
       alTocar: () => editarGasto(gasto.id),
       alBorrar: () => {
-        datos.gastos = datos.gastos.filter((g) => g.id !== gasto.id);
         if (editandoGastoId === gasto.id) cancelarEdicion();
-        guardarDatos();
-        pintarTodo();
+        quitarFila("gastos", gasto.id);
         avisar("Gasto borrado");
       },
     }));
@@ -525,6 +580,65 @@ function pintarGastos() {
     : "";
   $("#vacioGastos").classList.toggle("visible", gastosMes.length === 0);
 }
+
+/* ---------- deudas ---------- */
+
+function nombreDePersona(id) {
+  const persona = datos.personas.find((p) => p.id === id);
+  if (!persona) return "alguien";
+  return persona.nombre && persona.nombre !== "Mi monedero" ? persona.nombre : persona.alias;
+}
+
+function pintarDeudas() {
+  const conCuenta = Nube.hayCuenta();
+  $("#deudasSinCuenta").hidden = conCuenta;
+  $("#formDeuda").hidden = !conCuenta;
+
+  const yo = conCuenta ? Nube.usuario.id : null;
+  const abiertas = datos.deudas.filter((d) => !d.pagada);
+  const teDeben = abiertas.filter((d) => d.acreedor === yo).reduce((s, d) => s + d.cantidad, 0);
+  const debes = abiertas.filter((d) => d.deudor === yo).reduce((s, d) => s + d.cantidad, 0);
+  $("#resumenTeDeben").textContent = dinero(teDeben);
+  $("#resumenDebes").textContent = dinero(debes);
+
+  const lista = $("#listaDeudas");
+  lista.innerHTML = "";
+
+  for (const deuda of datos.deudas) {
+    const meDeben = deuda.acreedor === yo;
+    const otra = meDeben ? deuda.deudor : deuda.acreedor;
+
+    const li = elementoMovimiento({
+      emoji: deuda.pagada ? "✅" : meDeben ? "🫴" : "💸",
+      nombre: deuda.concepto,
+      detalle: deuda.pagada
+        ? `Ya está saldada · ${deuda.fecha}`
+        : meDeben
+          ? `${nombreDePersona(otra)} te lo debe · ${deuda.fecha}`
+          : `Se lo debes a ${nombreDePersona(otra)} · ${deuda.fecha}`,
+      cantidad: deuda.cantidad,
+      esGasto: !meDeben,
+      textoCantidad: dinero(deuda.cantidad),
+      alTocar: () => {
+        const texto = deuda.pagada ? "¿Marcar esta deuda como NO pagada?" : "¿Marcar esta deuda como pagada?";
+        if (!confirm(texto)) return;
+        cambiarFila("deudas", deuda.id, { pagada: !deuda.pagada });
+        avisar(deuda.pagada ? "Deuda reabierta" : "✅ Deuda saldada");
+      },
+      alBorrar: () => {
+        if (!confirm(`¿Borrar la deuda "${deuda.concepto}"?`)) return;
+        quitarFila("deudas", deuda.id);
+        avisar("Deuda borrada");
+      },
+    });
+    if (deuda.pagada) li.classList.add("saldada");
+    lista.append(li);
+  }
+
+  $("#vacioDeudas").classList.toggle("visible", datos.deudas.length === 0);
+}
+
+/* ---------- ajustes y cuenta ---------- */
 
 function pintarAjustes() {
   $("#ajusteNombre").value = datos.ajustes.nombre;
@@ -542,6 +656,7 @@ function pintarAjustes() {
       datos.ajustes.color = color;
       guardarDatos();
       pintarTodo();
+      if (Nube.hayCuenta()) Nube.guardarPerfil(datos.ajustes).catch(() => {});
     });
     paleta.append(boton);
   }
@@ -549,6 +664,14 @@ function pintarAjustes() {
   document.querySelectorAll("#opcionesTema .chip").forEach((chip) => {
     chip.classList.toggle("activo", chip.dataset.tema === datos.ajustes.tema);
   });
+
+  const conCuenta = Nube.hayCuenta();
+  $("#cajaCuenta").hidden = !conCuenta;
+  $("#cajaSinCuenta").hidden = conCuenta;
+  if (conCuenta) {
+    $("#cuentaCorreo").textContent = `Has entrado como ${Nube.usuario.email}`;
+    $("#inputAlias").value = datos.ajustes.alias || "";
+  }
 }
 
 /* ---------- chips de categorías ---------- */
@@ -624,10 +747,94 @@ function cancelarEdicion() {
   $("#btnCancelarEdicion").hidden = true;
 }
 
+/* ==========================================================
+   Cuenta: entrar, registrarse y sincronizar
+   ========================================================== */
+
+function mostrarAcceso(mostrar) {
+  $("#pantallaAcceso").hidden = !mostrar;
+}
+
+function avisoAcceso(texto, esError = true) {
+  const el = $("#accesoAviso");
+  el.textContent = texto;
+  el.hidden = !texto;
+  el.classList.toggle("malo", esError);
+}
+
+async function entrarEnModoNube({ subirLoLocal = false } = {}) {
+  modo = "nube";
+  localStorage.setItem(CLAVE_MODO, "nube");
+
+  try {
+    if (subirLoLocal) await subirTodoLoLocal();
+    await Nube.vaciarCola();
+    const nube = await Nube.cargarTodo();
+
+    datos.ingresos = nube.ingresos;
+    datos.fijos = nube.fijos;
+    datos.gastos = nube.gastos;
+    datos.deudas = nube.deudas;
+    datos.personas = nube.personas;
+    if (nube.perfil) {
+      datos.ajustes = {
+        nombre: nube.perfil.nombre,
+        emoji: nube.perfil.emoji,
+        color: nube.perfil.color,
+        tema: nube.perfil.tema,
+        alias: nube.perfil.alias,
+      };
+    }
+    guardarDatos();
+    pintarTodo();
+    Nube.escuchar(alCambiarLaNube);
+  } catch (error) {
+    // sin internet se sigue trabajando con lo que hay guardado aquí
+    pintarTodo();
+    avisar("📴 Sin internet, trabajando con lo guardado aquí");
+  }
+}
+
+// lo que ya estaba apuntado sin cuenta se sube tal cual al crear la cuenta
+async function subirTodoLoLocal() {
+  for (const tabla of ["ingresos", "fijos", "gastos"]) {
+    for (const fila of datos[tabla]) {
+      const conId = { ...fila, id: esUuid(fila.id) ? fila.id : nuevoId() };
+      await Nube.insertar(tabla, conId);
+    }
+  }
+  await Nube.guardarPerfil(datos.ajustes).catch(() => {});
+}
+
+const esUuid = (id) => typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id);
+
+let recargaPendiente;
+function alCambiarLaNube() {
+  // varios cambios seguidos, una sola recarga
+  clearTimeout(recargaPendiente);
+  recargaPendiente = setTimeout(async () => {
+    try {
+      const nube = await Nube.cargarTodo();
+      datos.ingresos = nube.ingresos;
+      datos.fijos = nube.fijos;
+      datos.gastos = nube.gastos;
+      datos.deudas = nube.deudas;
+      datos.personas = nube.personas;
+      guardarDatos();
+      pintarTodo();
+    } catch { /* ya se reintentará */ }
+  }, 400);
+}
+
 /* ---------- eventos ---------- */
 
 document.querySelectorAll(".nav-boton").forEach((boton) => {
   boton.addEventListener("click", () => irATab(boton.dataset.tab));
+});
+
+$("#btnAbrirAjustes").addEventListener("click", () => {
+  irATab("ajustes");
+  document.querySelectorAll(".nav-boton").forEach((b) => b.classList.remove("activo"));
 });
 
 $("#btnMesAnterior").addEventListener("click", () => cambiarMes(-1));
@@ -651,11 +858,148 @@ document.querySelectorAll("#formGasto [data-atajo]").forEach((boton) => {
   });
 });
 
+/* ---------- acceso ---------- */
+
+let modoAcceso = "entrar";
+
+document.querySelectorAll(".acceso-pestanas .chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    modoAcceso = chip.dataset.modo;
+    document.querySelectorAll(".acceso-pestanas .chip").forEach((c) => c.classList.toggle("activo", c === chip));
+    $("#btnAcceso").textContent = modoAcceso === "entrar" ? "Entrar" : "Crear mi cuenta";
+    $('#formAcceso [name="contrasena"]').autocomplete = modoAcceso === "entrar" ? "current-password" : "new-password";
+    avisoAcceso("");
+  });
+});
+
+$("#formAcceso").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const form = new FormData(evento.target);
+  const correo = form.get("correo").trim();
+  const contrasena = form.get("contrasena");
+  const boton = $("#btnAcceso");
+  boton.disabled = true;
+  avisoAcceso("");
+
+  try {
+    if (modoAcceso === "registrar") {
+      const { hayQueConfirmar } = await Nube.registrar(correo, contrasena);
+      if (hayQueConfirmar) {
+        avisoAcceso("Cuenta creada. Te hemos mandado un correo: ábrelo, pulsa el enlace y vuelve aquí a entrar.", false);
+        boton.disabled = false;
+        return;
+      }
+      await entrarEnModoNube({ subirLoLocal: true });
+    } else {
+      await Nube.entrar(correo, contrasena);
+      await entrarEnModoNube();
+    }
+    mostrarAcceso(false);
+    avisar("☁️ Sesión iniciada");
+  } catch (error) {
+    avisoAcceso(traducirErrorDeAcceso(error));
+  }
+  boton.disabled = false;
+});
+
+function traducirErrorDeAcceso(error) {
+  const texto = (error && error.message ? error.message : String(error)).toLowerCase();
+  if (texto.includes("invalid login")) return "El correo o la contraseña no son correctos.";
+  if (texto.includes("already registered")) return "Ese correo ya tiene cuenta. Entra en vez de crearla.";
+  if (texto.includes("email not confirmed")) return "Todavía no has confirmado la cuenta. Mira tu correo y pulsa el enlace.";
+  if (texto.includes("password")) return "La contraseña debe tener al menos 6 letras o números.";
+  if (texto.includes("rate limit") || texto.includes("too many")) return "Demasiados intentos seguidos. Espera un rato y vuelve a probar.";
+  if (texto.includes("fetch") || texto.includes("network")) return "No hay internet. Puedes usar la app sin cuenta mientras tanto.";
+  return "No se ha podido: " + (error && error.message ? error.message : "error desconocido");
+}
+
+$("#btnOlvide").addEventListener("click", async () => {
+  const correo = $('#formAcceso [name="correo"]').value.trim();
+  if (!correo) {
+    avisoAcceso("Escribe primero tu correo aquí arriba y vuelve a tocar.");
+    return;
+  }
+  try {
+    await Nube.pedirNuevaContrasena(correo);
+    avisoAcceso("Te hemos mandado un correo. Ábrelo, pulsa el enlace y podrás poner una contraseña nueva.", false);
+  } catch (error) {
+    avisoAcceso(traducirErrorDeAcceso(error));
+  }
+});
+
+// la persona vuelve desde el enlace del correo: se le pide la contraseña nueva
+Nube.alRecuperar(() => {
+  mostrarAcceso(true);
+  $("#formAcceso").hidden = true;
+  $("#btnSinCuenta").hidden = true;
+  $("#formNuevaContrasena").hidden = false;
+});
+
+$("#formNuevaContrasena").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const nueva = new FormData(evento.target).get("contrasena");
+  try {
+    await Nube.cambiarContrasena(nueva);
+    $("#formNuevaContrasena").hidden = true;
+    $("#formAcceso").hidden = false;
+    $("#btnSinCuenta").hidden = false;
+    await entrarEnModoNube();
+    mostrarAcceso(false);
+    avisar("✅ Contraseña cambiada");
+  } catch (error) {
+    avisoAcceso(traducirErrorDeAcceso(error));
+  }
+});
+
+$("#btnSinCuenta").addEventListener("click", () => {
+  modo = "local";
+  localStorage.setItem(CLAVE_MODO, "local");
+  mostrarAcceso(false);
+  pintarTodo();
+});
+
+$("#btnEntrarDesdeAjustes").addEventListener("click", () => mostrarAcceso(true));
+$("#btnCrearCuentaDesdeDeudas").addEventListener("click", () => mostrarAcceso(true));
+
+$("#btnCerrarSesion").addEventListener("click", async () => {
+  if (!confirm("¿Cerrar sesión? Tus datos siguen en la nube, y aquí se quedará solo la copia local.")) return;
+  await Nube.salir();
+  modo = "local";
+  localStorage.setItem(CLAVE_MODO, "local");
+  pintarTodo();
+  avisar("Sesión cerrada");
+});
+
+$("#btnSincronizar").addEventListener("click", async () => {
+  avisar("Sincronizando…");
+  await Nube.vaciarCola();
+  await entrarEnModoNube();
+  avisar("☁️ Al día");
+});
+
+$("#btnGuardarAlias").addEventListener("click", async () => {
+  const alias = $("#inputAlias").value.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,24}$/.test(alias)) {
+    avisar("El alias solo admite minúsculas, números, puntos y guiones (3 a 24)");
+    return;
+  }
+  try {
+    await Nube.guardarPerfil({ ...datos.ajustes, alias });
+    datos.ajustes.alias = alias;
+    guardarDatos();
+    avisar("✅ Alias guardado: " + alias);
+  } catch (error) {
+    avisar(String(error.message || error).includes("duplicate") ? "Ese alias ya lo tiene otra persona" : "No se pudo guardar el alias");
+  }
+});
+
+/* ---------- formularios de dinero ---------- */
+
 $("#formIngreso").addEventListener("submit", (evento) => {
   evento.preventDefault();
   const form = new FormData(evento.target);
   const nombre = form.get("nombre").trim();
-  datos.ingresos.push({
+  anadirFila("ingresos", {
     id: nuevoId(),
     nombre,
     tipo: form.get("tipo"),
@@ -665,11 +1009,9 @@ $("#formIngreso").addEventListener("submit", (evento) => {
     mes: mesVisible,
     desde: mesVisible,
   });
-  guardarDatos();
   evento.target.reset();
   evento.target.querySelector('[name="mensual"]').checked = true;
   marcarChip("#chipsTipoIngreso", "#tipoIngresoElegido", CATEGORIAS_INGRESO[0].id);
-  pintarTodo();
   avisar(`✅ Ingreso "${nombre}" guardado`);
 });
 
@@ -678,7 +1020,7 @@ $("#formFijo").addEventListener("submit", (evento) => {
   const form = new FormData(evento.target);
   const meses = parseInt(form.get("meses"), 10);
   const nombre = form.get("nombre").trim();
-  datos.fijos.push({
+  anadirFila("fijos", {
     id: nuevoId(),
     nombre,
     cantidad: parseFloat(form.get("cantidad")),
@@ -688,10 +1030,8 @@ $("#formFijo").addEventListener("submit", (evento) => {
     fin: form.get("periodicidad") === "mensual" && meses > 0 ? sumarMeses(mesVisible, meses) : null,
     desde: mesVisible,
   });
-  guardarDatos();
   evento.target.reset();
   marcarChip("#chipsCategoriaFijo", "#categoriaFijoElegida", CATEGORIAS_FIJO[0].id);
-  pintarTodo();
   avisar(`✅ Gasto fijo "${nombre}" guardado`);
 });
 
@@ -700,26 +1040,23 @@ $("#formGasto").addEventListener("submit", (evento) => {
   const form = new FormData(evento.target);
   const cantidad = parseFloat(form.get("cantidad"));
   const categoria = form.get("categoria");
+  const nota = form.get("nota").trim();
+  const fecha = form.get("fecha");
   const cat = categoriaDe(CATEGORIAS_GASTO, categoria);
 
   if (editandoGastoId) {
-    const gasto = datos.gastos.find((g) => g.id === editandoGastoId);
-    Object.assign(gasto, { cantidad, categoria, nota: form.get("nota").trim(), fecha: form.get("fecha") });
+    const id = editandoGastoId;
     cancelarEdicion();
-    guardarDatos();
-    pintarTodo();
+    cambiarFila("gastos", id, { cantidad, categoria, nota, fecha });
     avisar(`✏️ Gasto corregido, ahora son ${dinero(cantidad)}`);
     irATab("inicio");
     return;
   }
 
-  const fecha = form.get("fecha");
-  datos.gastos.push({ id: nuevoId(), cantidad, categoria, nota: form.get("nota").trim(), fecha });
-  guardarDatos();
   cancelarEdicion();
   // el mes que se mira salta al del gasto, para que no parezca que se ha perdido
   if (!fecha.startsWith(mesVisible)) mesVisible = fecha.slice(0, 7);
-  pintarTodo();
+  anadirFila("gastos", { id: nuevoId(), cantidad, categoria, nota, fecha });
   avisar(`✅ Apuntado ${dinero(cantidad)} en ${cat.nombre}`);
   irATab("inicio");
 });
@@ -729,12 +1066,83 @@ $("#btnCancelarEdicion").addEventListener("click", () => {
   avisar("Cambios cancelados");
 });
 
-$("#formAjustes").addEventListener("submit", (evento) => {
+/* ---------- deudas ---------- */
+
+let personaElegida = null;
+
+document.querySelectorAll("#sentidoDeuda .chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll("#sentidoDeuda .chip").forEach((c) => c.classList.toggle("activo", c === chip));
+  });
+});
+
+$("#btnBuscarPersona").addEventListener("click", async () => {
+  const alias = $("#inputAliasDeuda").value.trim().toLowerCase();
+  const aviso = $("#personaEncontrada");
+  personaElegida = null;
+  if (!alias) { aviso.textContent = "Escribe el alias de la persona."; return; }
+
+  aviso.textContent = "Buscando…";
+  try {
+    const persona = await Nube.buscarPersona(alias);
+    if (!persona) {
+      aviso.textContent = `No hay nadie con el alias "${alias}". Pídele que lo ponga en sus ajustes.`;
+      return;
+    }
+    personaElegida = persona;
+    aviso.textContent = `✅ Encontrada: ${persona.nombre !== "Mi monedero" ? persona.nombre : persona.alias}`;
+    if (!datos.personas.some((p) => p.id === persona.id)) datos.personas.push(persona);
+  } catch {
+    aviso.textContent = "No se ha podido buscar, mira si tienes internet.";
+  }
+});
+
+$("#formDeuda").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  if (!Nube.hayCuenta()) return;
+  if (!personaElegida) {
+    avisar("Busca primero a la persona por su alias");
+    return;
+  }
+  const form = new FormData(evento.target);
+  const meDeben = $("#sentidoDeuda .chip.activo").dataset.sentido === "me-deben";
+  const yo = Nube.usuario.id;
+
+  const deuda = {
+    id: nuevoId(),
+    acreedor: meDeben ? yo : personaElegida.id,
+    deudor: meDeben ? personaElegida.id : yo,
+    concepto: form.get("concepto").trim(),
+    cantidad: parseFloat(form.get("cantidad")),
+    fecha: hoyISO(),
+    pagada: false,
+  };
+
+  datos.deudas.unshift(deuda);
+  guardarDatos();
+  pintarTodo();
+  Nube.insertarDeuda(deuda).then((r) => {
+    if (!r.ok) avisar("📴 Apuntada aquí, se subirá cuando vuelva internet");
+    pintarEstadoNube();
+  });
+
+  evento.target.reset();
+  $("#personaEncontrada").textContent = "";
+  personaElegida = null;
+  avisar(`✅ Deuda apuntada: ${dinero(deuda.cantidad)}`);
+});
+
+/* ---------- ajustes ---------- */
+
+$("#formAjustes").addEventListener("submit", async (evento) => {
   evento.preventDefault();
   datos.ajustes.nombre = $("#ajusteNombre").value.trim() || "Mi monedero";
   datos.ajustes.emoji = $("#ajusteEmoji").value.trim() || "💶";
   guardarDatos();
   pintarTodo();
+  if (Nube.hayCuenta()) {
+    try { await Nube.guardarPerfil(datos.ajustes); } catch { avisar("Guardado aquí, la nube no respondió"); return; }
+  }
   avisar("✅ Ajustes guardados");
 });
 
@@ -743,6 +1151,7 @@ document.querySelectorAll("#opcionesTema .chip").forEach((chip) => {
     datos.ajustes.tema = chip.dataset.tema;
     guardarDatos();
     pintarTodo();
+    if (Nube.hayCuenta()) Nube.guardarPerfil(datos.ajustes).catch(() => {});
   });
 });
 
@@ -781,18 +1190,43 @@ $("#inputImportar").addEventListener("change", (evento) => {
 });
 
 $("#btnBorrarTodo").addEventListener("click", () => {
-  if (!confirm("¿Seguro que quieres borrar TODOS los datos? Esto no se puede deshacer.")) return;
-  datos = datosPorDefecto();
+  if (!confirm("¿Seguro que quieres borrar TODOS los datos de este aparato? Esto no se puede deshacer.")) return;
+  const ajustes = datos.ajustes;
+  datos = { ...datosPorDefecto(), ajustes };
   mesVisible = mesActualClave();
   guardarDatos();
   pintarTodo();
   irATab("inicio");
 });
 
+/* ---------- vuelve el internet ---------- */
+
+window.addEventListener("online", async () => {
+  if (!Nube.hayCuenta()) return;
+  const subidas = await Nube.vaciarCola();
+  if (subidas) {
+    avisar(`☁️ Subidos ${subidas} ${subidas === 1 ? "cambio" : "cambios"} que estaban esperando`);
+    await entrarEnModoNube();
+  }
+  pintarEstadoNube();
+});
+
 /* ---------- arranque ---------- */
 
-pintarChips("#chipsCategoriaGasto", CATEGORIAS_GASTO, "#categoriaGastoElegida");
-pintarChips("#chipsCategoriaFijo", CATEGORIAS_FIJO, "#categoriaFijoElegida");
-pintarChips("#chipsTipoIngreso", CATEGORIAS_INGRESO, "#tipoIngresoElegido");
-$("#inputFechaGasto").value = hoyISO();
-pintarTodo();
+async function arrancar() {
+  pintarChips("#chipsCategoriaGasto", CATEGORIAS_GASTO, "#categoriaGastoElegida");
+  pintarChips("#chipsCategoriaFijo", CATEGORIAS_FIJO, "#categoriaFijoElegida");
+  pintarChips("#chipsTipoIngreso", CATEGORIAS_INGRESO, "#tipoIngresoElegido");
+  $("#inputFechaGasto").value = hoyISO();
+  pintarTodo();
+
+  const usuario = await Nube.recuperarSesion().catch(() => null);
+  if (usuario) {
+    await entrarEnModoNube();
+    mostrarAcceso(false);
+  } else {
+    mostrarAcceso(modo !== "local");
+  }
+}
+
+arrancar();

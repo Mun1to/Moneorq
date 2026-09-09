@@ -12,12 +12,55 @@
      sin esperar a app.js = cero parpadeo. app.js lo sobreescribe con el ajuste guardado. -->
 <body data-tema="auto">
 
+  <!-- ============ PANTALLA DE ACCESO ============ -->
+  <div class="acceso" id="pantallaAcceso" hidden>
+    <div class="acceso-caja">
+      <div class="acceso-marca"><span>💶</span> Moneorq</div>
+      <p class="acceso-lema">Tu dinero, claro.</p>
+
+      <div class="acceso-pestanas">
+        <button type="button" class="chip activo" data-modo="entrar">Ya tengo cuenta</button>
+        <button type="button" class="chip" data-modo="registrar">Crear una cuenta</button>
+      </div>
+
+      <form id="formAcceso" class="formulario">
+        <label>Tu correo
+          <input type="email" name="correo" required autocomplete="email" placeholder="tucorreo@ejemplo.com">
+        </label>
+        <label>Tu contraseña
+          <input type="password" name="contrasena" required minlength="6" autocomplete="current-password" placeholder="mínimo 6 letras o números">
+        </label>
+        <button type="submit" class="boton" id="btnAcceso">Entrar</button>
+        <button type="button" class="enlace-suave" id="btnOlvide">He olvidado mi contraseña</button>
+        <p class="acceso-aviso" id="accesoAviso" hidden></p>
+      </form>
+
+      <form id="formNuevaContrasena" class="formulario" hidden>
+        <p class="cuenta-linea">Pon tu contraseña nueva</p>
+        <label>Contraseña nueva
+          <input type="password" name="contrasena" required minlength="6" autocomplete="new-password">
+        </label>
+        <button type="submit" class="boton">Guardar la contraseña</button>
+      </form>
+
+      <button type="button" class="boton secundario" id="btnSinCuenta">Usar sin cuenta, solo en este aparato</button>
+
+      <p class="ayuda acceso-nota">
+        <strong>Con cuenta</strong>, lo que apuntas en el móvil aparece solo en el ordenador y puedes
+        apuntar deudas con otras personas.<br>
+        <strong>Sin cuenta</strong>, todo se queda guardado en este navegador y no sale de aquí.
+      </p>
+    </div>
+  </div>
+
   <header class="cabecera">
+    <button type="button" class="cabecera-ajustes" id="btnAbrirAjustes" aria-label="Ajustes y perfil">⚙️</button>
     <div class="cabecera-contenido">
       <div class="monedero">
         <span class="monedero-emoji" id="monederoEmoji">💶</span>
         <h1 id="monederoNombre">Mi monedero</h1>
       </div>
+      <p class="estado-nube" id="estadoNube"></p>
 
       <div class="mes-navegador">
         <button type="button" class="mes-flecha" id="btnMesAnterior" aria-label="Mes anterior">‹</button>
@@ -199,6 +242,57 @@
       <p class="vacio" id="vacioGastos">Aún no has apuntado gastos en este mes.</p>
     </section>
 
+    <!-- ============ DEUDAS ============ -->
+    <section id="tab-deudas" class="tab">
+      <h2>🤝 Deudas con otras personas</h2>
+      <p class="ayuda">Lo que te deben y lo que debes, sin discusiones. Las dos personas ven la misma deuda.</p>
+
+      <div class="tarjetas-resumen dos">
+        <div class="tarjeta">
+          <span class="tarjeta-icono">🫴</span>
+          <span class="tarjeta-titulo">Te deben</span>
+          <span class="tarjeta-valor positivo" id="resumenTeDeben">0 €</span>
+        </div>
+        <div class="tarjeta">
+          <span class="tarjeta-icono">💸</span>
+          <span class="tarjeta-titulo">Debes</span>
+          <span class="tarjeta-valor negativo" id="resumenDebes">0 €</span>
+        </div>
+      </div>
+
+      <div id="deudasSinCuenta" class="aviso-caja" hidden>
+        <p>Para apuntar deudas con alguien hacen falta <strong>las dos cuentas</strong>, la tuya y la suya.</p>
+        <button type="button" class="boton" id="btnCrearCuentaDesdeDeudas">Crear mi cuenta</button>
+      </div>
+
+      <form id="formDeuda" class="formulario">
+        <label>¿Con quién? (su alias en Moneorq)
+          <span class="fila-fecha">
+            <input type="text" name="alias" id="inputAliasDeuda" placeholder="por ejemplo: mama.rosa" maxlength="24">
+            <button type="button" class="boton secundario" id="btnBuscarPersona">Buscar</button>
+          </span>
+        </label>
+        <p class="ayuda" id="personaEncontrada"></p>
+
+        <span class="etiqueta">¿Quién puso el dinero?</span>
+        <div class="opciones-tema" id="sentidoDeuda">
+          <button type="button" class="chip activo" data-sentido="me-deben">Lo puse yo, me lo deben</button>
+          <button type="button" class="chip" data-sentido="debo">Lo puso esa persona, se lo debo</button>
+        </div>
+
+        <label>¿De qué es?
+          <input type="text" name="concepto" placeholder="La cena del sábado" required maxlength="60">
+        </label>
+        <label>¿Cuánto? (€)
+          <input type="number" name="cantidad" placeholder="20" min="0.01" step="0.01" required inputmode="decimal">
+        </label>
+        <button type="submit" class="boton">Apuntar la deuda</button>
+      </form>
+
+      <ul class="lista" id="listaDeudas"></ul>
+      <p class="vacio" id="vacioDeudas">No hay deudas apuntadas. Mejor así.</p>
+    </section>
+
     <!-- ============ AJUSTES ============ -->
     <section id="tab-ajustes" class="tab">
       <h2>⚙️ Ajustes</h2>
@@ -224,8 +318,28 @@
         <button type="submit" class="boton">Guardar ajustes</button>
       </form>
 
+      <h2>👤 Mi cuenta</h2>
+      <div class="formulario" id="cajaCuenta">
+        <p class="cuenta-linea" id="cuentaCorreo"></p>
+        <label>Tu alias, para que te encuentren al apuntar deudas
+          <span class="fila-fecha">
+            <input type="text" id="inputAlias" maxlength="24" placeholder="mama.rosa">
+            <button type="button" class="boton secundario" id="btnGuardarAlias">Guardar</button>
+          </span>
+        </label>
+        <p class="ayuda">Solo letras minúsculas, números, puntos y guiones. Es lo único que le tienes que dar a alguien para apuntar una deuda, nunca tu correo.</p>
+        <button type="button" class="boton secundario" id="btnSincronizar">🔄 Sincronizar ahora</button>
+        <button type="button" class="boton secundario" id="btnCerrarSesion">Cerrar sesión</button>
+      </div>
+
+      <div class="formulario" id="cajaSinCuenta" hidden>
+        <p>Ahora mismo estás <strong>sin cuenta</strong>: todo se guarda solo en este navegador.</p>
+        <p class="ayuda">Si creas una cuenta, lo que ya tienes apuntado aquí se sube tal cual y lo verás también en tus otros aparatos.</p>
+        <button type="button" class="boton" id="btnEntrarDesdeAjustes">Crear cuenta o entrar</button>
+      </div>
+
       <h2>💾 Copia de seguridad</h2>
-      <p class="ayuda">Tus datos se guardan <strong>solo en este navegador</strong>, nadie más los ve. Descarga una copia de vez en cuando por si cambias de móvil u ordenador.</p>
+      <p class="ayuda">Descarga una copia de vez en cuando. Es tuya y funciona aunque no tengas cuenta.</p>
       <div class="fila">
         <button class="boton secundario" id="btnExportar">⬇️ Descargar mis datos</button>
         <button class="boton secundario" id="btnImportar">⬆️ Recuperar una copia</button>
@@ -244,11 +358,13 @@
     <button data-tab="ingresos" class="nav-boton"><span>📥</span>Ingresos</button>
     <button data-tab="fijos" class="nav-boton"><span>📌</span>Fijos</button>
     <button data-tab="gastos" class="nav-boton"><span>🛒</span>Gastos</button>
-    <button data-tab="ajustes" class="nav-boton"><span>⚙️</span>Ajustes</button>
+    <button data-tab="deudas" class="nav-boton"><span>🤝</span>Deudas</button>
   </nav>
 
   <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+  <script src="nube.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
