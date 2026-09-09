@@ -1,0 +1,3 @@
+# rastros del CLI de Supabase, no son del proyecto
+supabase/.temp/
+supabase/.branches/
